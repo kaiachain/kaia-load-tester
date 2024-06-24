@@ -1,11 +1,11 @@
-module github.com/klaytn/klaytn-load-tester
+module github.com/kaiachain/kaia-load-tester
 
 go 1.15
 
 require (
 	github.com/asaskevich/EventBus v0.0.0-20200907212545-49d423059eef // indirect
 	github.com/google/uuid v1.1.2 // indirect
-	github.com/klaytn/klaytn v1.9.0-rc.2
+	github.com/kaiachain/kaia v1.9.0-rc.2
 	github.com/myzhan/boomer v0.0.0-20200828033921-b29cf430b44f
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect

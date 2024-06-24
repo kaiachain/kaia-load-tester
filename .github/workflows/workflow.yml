@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: klaytn-load-tester
+  IMAGE_NAME: kaia-load-tester
 
 jobs:
   docker:
@@ -33,6 +33,6 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: klaytn/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          tags: kaia/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

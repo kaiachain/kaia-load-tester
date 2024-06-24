@@ -238,8 +238,8 @@ github.com/klauspost/cpuid v1.2.1/go.mod h1:Pj4uuM528wm8OyEC2QMXAi2YiTZ96dNQPGgo
 github.com/klauspost/crc32 v0.0.0-20161016154125-cb6bfca970f6/go.mod h1:+ZoRqAPRLkC4NPOvfYeR5KNOrY6TD+/sAC3HXPZgDYg=
 github.com/klauspost/pgzip v1.0.2-0.20170402124221-0bf5dcad4ada/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
 github.com/klauspost/reedsolomon v1.9.2/go.mod h1:CwCi+NUr9pqSVktrkN+Ondf06rkhYZ/pcNv7fu+8Un4=
-github.com/klaytn/klaytn v1.9.0-rc.2 h1:A9MS5Sla6Lxs75F1spCSNOa0KV/JzG5vo9hcGr8pk5g=
-github.com/klaytn/klaytn v1.9.0-rc.2/go.mod h1:VA9XF1tmHz1eNXok0GaELY9kugMKdV2NciROWsWxjzI=
+github.com/kaiachain/kaia v1.9.0-rc.2 h1:A9MS5Sla6Lxs75F1spCSNOa0KV/JzG5vo9hcGr8pk5g=
+github.com/kaiachain/kaia v1.9.0-rc.2/go.mod h1:VA9XF1tmHz1eNXok0GaELY9kugMKdV2NciROWsWxjzI=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=

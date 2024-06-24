@@ -1,4 +1,4 @@
-ARG SRC_DIR=/go/src/github.com/klaytn/klaytn-load-tester
+ARG SRC_DIR=/go/src/github.com/kaiachain/kaia-load-tester
 
 FROM golang:1.18-buster as builder
 ARG SRC_DIR
