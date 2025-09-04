@@ -101,16 +101,16 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 		log.Fatalf("transfer for reservoir failed, localReservoir")
 	}
 
-	// for _, token := range []string{"2", "3", "4", "5", "6", "7", "8", "9", "10"} {
-	// 	tx = globalReservoirAccount.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), localReservoirAccount, new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e18)), token)
-	// 	receipt, err = bind.WaitMined(context.Background(), cfg.GetGCli(), tx)
-	// 	if err != nil {
-	// 		log.Fatalf("receipt failed, err:%v", err.Error())
-	// 	}
-	// 	if receipt.Status != 1 {
-	// 		log.Fatalf("transfer for reservoir failed, localReservoir")
-	// 	}
-	// }
+	for _, token := range []string{"2", "3", "4", "5"} {
+		tx = globalReservoirAccount.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), localReservoirAccount, cfg.GetChargeValue(), token)
+		receipt, err = bind.WaitMined(context.Background(), cfg.GetGCli(), tx)
+		if err != nil {
+			log.Fatalf("receipt failed, err:%v", err.Error())
+		}
+		if receipt.Status != 1 {
+			log.Fatalf("transfer for reservoir failed, localReservoir")
+		}
+	}
 
 	// 3. charge KAIA
 	if cfg.InTheTcList("transferTxTC") {
@@ -123,12 +123,12 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 		})
 		log.Printf("Finished charging KLAY to %d test account(s)\n", len(accs))
 	} else if cfg.InTheTcList("tokenTransferTxTC") {
-		log.Printf("Start charging all Tokens [2-10] to test accounts")
+		log.Printf("Start charging all Tokens [2-5] to test accounts")
 		accs := accGrp.GetValidAccGrp()
 		accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessRevertTx)...)  // for avoid validation
 		accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessApproveTx)...) // for avoid validation
-		for _, token := range []string{"2", "3", "4", "5", "6", "7", "8", "9", "10"} {
-			account.HierarchicalDistribute(accs, localReservoirAccount, new(big.Int).Mul(big.NewInt(1e10), big.NewInt(1e18)), func(from, to *account.Account, value *big.Int) {
+		for _, token := range []string{"2", "3", "4", "5"} {
+			account.HierarchicalDistribute(accs, localReservoirAccount, cfg.GetChargeValue(), func(from, to *account.Account, value *big.Int) {
 				from.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), to, value, token)
 			})
 			log.Printf("Finished charging Token \"%s\" to %d test account(s)\n", token, len(accs))
@@ -139,7 +139,7 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 		accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessRevertTx)...)  // for avoid validation
 		accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessApproveTx)...) // for avoid validation
 		for _, token := range []string{"2", "3"} {
-			account.HierarchicalDistribute(accs, localReservoirAccount, new(big.Int).Mul(big.NewInt(1e10), big.NewInt(1e18)), func(from, to *account.Account, value *big.Int) {
+			account.HierarchicalDistribute(accs, localReservoirAccount, cfg.GetChargeValue(), func(from, to *account.Account, value *big.Int) {
 				from.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), to, value, token)
 			})
 			log.Printf("Finished charging Token \"%s\" to %d test account(s)\n", token, len(accs))
