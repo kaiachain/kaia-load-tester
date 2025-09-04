@@ -435,7 +435,7 @@ func (acc *Account) GenSessionCreateTx() (*types.Transaction, error) {
 		sessionCtx.Session.Nonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
@@ -468,7 +468,7 @@ func (acc *Account) GenSessionDeleteTx(i int) (*types.Transaction, error) {
 		sessionCtx.Session.Nonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
@@ -497,7 +497,7 @@ func (acc *Account) GenTransferTx(to *Account, value *big.Int) (*types.Transacti
 		acc.timenonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
@@ -527,7 +527,7 @@ func (acc *Account) GenTokenTransferTx(to *Account, value *big.Int, token string
 		acc.timenonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
@@ -557,7 +557,7 @@ func (acc *Account) GenNewOrderTx(baseToken string, quoteToken string, side orde
 		acc.timenonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
@@ -587,7 +587,7 @@ func (acc *Account) GenNewStopOrderTx(baseToken string, quoteToken string, side 
 		acc.timenonce,
 		types.DexAddress,
 		common.Big0,
-		0,
+		100000,
 		common.Big0,
 		input,
 	)
