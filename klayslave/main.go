@@ -101,16 +101,16 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 		log.Fatalf("transfer for reservoir failed, localReservoir")
 	}
 
-	for _, token := range []string{"2", "3", "4", "5"} {
-		tx = globalReservoirAccount.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), localReservoirAccount, cfg.GetChargeValue(), token)
-		receipt, err = bind.WaitMined(context.Background(), cfg.GetGCli(), tx)
-		if err != nil {
-			log.Fatalf("receipt failed, err:%v", err.Error())
-		}
-		if receipt.Status != 1 {
-			log.Fatalf("transfer for reservoir failed, localReservoir")
-		}
-	}
+	// for _, token := range []string{"2", "3", "4", "5"} {
+	// 	tx = globalReservoirAccount.TransferTokenSignedTxWithGuaranteeRetry(cfg.GetGCli(), localReservoirAccount, cfg.GetChargeValue(), token)
+	// 	receipt, err = bind.WaitMined(context.Background(), cfg.GetGCli(), tx)
+	// 	if err != nil {
+	// 		log.Fatalf("receipt failed, err:%v", err.Error())
+	// 	}
+	// 	if receipt.Status != 1 {
+	// 		log.Fatalf("transfer for reservoir failed, localReservoir")
+	// 	}
+	// }
 
 	// 3. charge KAIA
 	if cfg.InTheTcList("transferTxTC") {
