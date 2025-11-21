@@ -76,6 +76,16 @@ func (acc *Account) UnLock() {
 	acc.mutex.Unlock()
 }
 
+func (acc *Account) updateTimeNonce() {
+	currentTimeMillis := uint64(time.Now().UnixMilli())
+
+	if acc.timenonce == 0 || acc.timenonce < currentTimeMillis {
+		acc.timenonce = currentTimeMillis + 120000 // 2 minutes = 120000 milliseconds
+	} else {
+		acc.timenonce++
+	}
+}
+
 func GetAccountFromKey(id int, key string) *Account {
 	// Normalize the private key format
 	key = strings.TrimPrefix(key, "0x")
@@ -472,7 +482,7 @@ func (acc *Account) GenLegacyTx(to *Account, value *big.Int, input []byte) (*typ
 func (acc *Account) GenSessionCreateTx() (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	sessionCtx, sessionKey, err := acc.NewSessionCreateCtx(uint64(1000000), acc.timenonce)
 	if err != nil {
@@ -507,7 +517,7 @@ func (acc *Account) GenSessionCreateTx() (*types.Transaction, error) {
 func (acc *Account) GenSessionDeleteTx(i int) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	sessionCtx, err := acc.NewSessionDeleteCtx(i, acc.timenonce)
 	if err != nil {
@@ -539,7 +549,7 @@ func (acc *Account) GenSessionDeleteTx(i int) (*types.Transaction, error) {
 func (acc *Account) GenTransferTx(to *Account, value *big.Int) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewValueTransferCtx(to, value)
 
@@ -569,11 +579,7 @@ func (acc *Account) GenTransferTx(to *Account, value *big.Int) (*types.Transacti
 func (acc *Account) GenTokenTransferTx(to *Account, value *big.Int, token string) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-
-	if acc.timenonce == 0 {
-		acc.timenonce = uint64(time.Now().UnixMilli())
-	}
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewTokenTransferCtx(to, value, token)
 
@@ -603,7 +609,7 @@ func (acc *Account) GenTokenTransferTx(to *Account, value *big.Int, token string
 func (acc *Account) GenNewOrderTx(baseToken string, quoteToken string, side orderbook.Side, price *big.Int, quantity *big.Int, orderType orderbook.OrderType) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewOrderCtx(baseToken, quoteToken, side, price, quantity, orderType)
 
@@ -633,7 +639,7 @@ func (acc *Account) GenNewOrderTx(baseToken string, quoteToken string, side orde
 func (acc *Account) GenNewOrderTxWithTpsl(baseToken string, quoteToken string, side orderbook.Side, price *big.Int, quantity *big.Int, orderType orderbook.OrderType, tpLimit, slTrigger, slLimit *big.Int) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewOrderCtxWithTpsl(baseToken, quoteToken, side, price, quantity, orderType, tpLimit, slTrigger, slLimit)
 
@@ -663,7 +669,7 @@ func (acc *Account) GenNewOrderTxWithTpsl(baseToken string, quoteToken string, s
 func (acc *Account) GenNewStopOrderTx(baseToken string, quoteToken string, side orderbook.Side, stopPrice, price *big.Int, quantity *big.Int, orderType orderbook.OrderType) (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewStopOrderCtx(baseToken, quoteToken, side, stopPrice, price, quantity, orderType)
 
@@ -693,7 +699,7 @@ func (acc *Account) GenNewStopOrderTx(baseToken string, quoteToken string, side 
 func (acc *Account) GenCancelAllTx() (*types.Transaction, error) {
 	acc.mutex.Lock()
 	defer acc.mutex.Unlock()
-	acc.timenonce++
+	acc.updateTimeNonce()
 
 	ctx := acc.NewCancelAllCtx()
 
@@ -726,6 +732,11 @@ func (acc *Account) SendTx(c *ethclient.Client, tx *types.Transaction) (common.H
 
 	err := c.SendTransaction(ctx, tx)
 	if err != nil {
+		if strings.Contains(err.Error(), "time nonce too low") {
+			acc.mutex.Lock()
+			acc.updateTimeNonce()
+			acc.mutex.Unlock()
+		}
 		return common.Hash{}, err
 	}
 
