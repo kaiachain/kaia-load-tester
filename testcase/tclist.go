@@ -10,6 +10,7 @@ const (
 	NewValueTransferMemoTCName                           = "newValueTransferMemoTC"
 	NewSmartContractExecutionTCName                      = "newSmartContractExecutionTC"
 	Erc20TransferTCName                                  = "erc20TransferTC"
+	Erc20TransferWithBlockedListTCName                   = "erc20TransferWithBlockedListTC"
 	CpuHeavyTCName                                       = "cpuHeavyTC"
 	NewFeeDelegatedValueTransferTCName                   = "newFeeDelegatedValueTransferTC"
 	NewFeeDelegatedValueTransferWithRatioTCName          = "newFeeDelegatedValueTransferWithRatioTC"
@@ -98,6 +99,13 @@ var TcList = map[string]*ExtendedTask{
 		Init:          Init,
 		Run:           RunErc20TransferTC,
 		TestContracts: []account.TestContract{account.ContractErc20},
+	},
+	Erc20TransferWithBlockedListTCName: {
+		Name:          Erc20TransferWithBlockedListTCName,
+		Weight:        10,
+		Init:          Init,
+		Run:           RunErc20TransferWithBlockedListTC,
+		TestContracts: []account.TestContract{account.ContractTetherProxy, account.ContractTetherLogic},
 	},
 	CpuHeavyTCName: {
 		Name:          CpuHeavyTCName,

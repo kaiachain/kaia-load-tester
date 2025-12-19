@@ -83,6 +83,15 @@ func RunErc20TransferTC(config *TCConfig) func() {
 	return RunBaseWithContract(config, txFunc)
 }
 
+func RunErc20TransferWithBlockedListTC(config *TCConfig) func() {
+	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+		tetherValue := big.NewInt(int64(rand.Int() % 3))
+		tetherData := account.TestContractInfos[account.ContractTetherProxy].GenData(to.GetAddress(), tetherValue)
+		return from.TransferNewSmartContractExecutionTx(cli, to, nil, tetherData)
+	}
+	return RunBaseWithContract(config, txFunc)
+}
+
 func RunErc721TransferTC(config *TCConfig) func() {
 	return func() {
 		cli := config.CliPool.Alloc().(*client.Client)

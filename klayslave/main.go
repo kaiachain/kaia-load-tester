@@ -71,7 +71,7 @@ func RunAction(ctx *cli.Context) {
 	if account.ContainsAnyInList(tcList, []string{"gaslessOnlyApproveTC"}) {
 		nUserForGaslessApproveTx = cfg.GetNUserForSigned() // same as nUserForSignedTx
 	}
-	accGrp.CreateAccountsPerAccGrp(cfg.GetNUserForSigned(), cfg.GetNUserForUnsigned(), cfg.GetNUserForNewAccounts(), nUserForGaslessRevertTx, nUserForGaslessApproveTx, cfg.GetTcStrList(), cfg.GetGEndpoint())
+	accGrp.CreateAccountsPerAccGrp(cfg.GetNUserForSigned(), cfg.GetNUserForUnsigned(), cfg.GetNUserForNewAccounts(), nUserForGaslessRevertTx, nUserForGaslessApproveTx, cfg.GetNUserForTC(), cfg.GetTcStrList(), cfg.GetGEndpoint())
 
 	createTestAccGroupsAndPrepareContracts(cfg, accGrp)
 

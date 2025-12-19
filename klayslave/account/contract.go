@@ -13,6 +13,7 @@ import (
 	auctionDepositVaultContracts "github.com/kaiachain/kaia-load-tester/klayslave/account/contracts/auctionDepositVault"
 	auctionEntryPointContracts "github.com/kaiachain/kaia-load-tester/klayslave/account/contracts/auctionEntryPoint"
 	auctionFeeVaultContracts "github.com/kaiachain/kaia-load-tester/klayslave/account/contracts/auctionFeeVault"
+	tetherContracts "github.com/kaiachain/kaia-load-tester/klayslave/account/contracts/tetherContract"
 
 	// ----------------
 
@@ -90,6 +91,8 @@ var (
 	UserStorageDeployer           = GetAccountFromKey(0, "c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890")
 	InternalTxKIP17Deployer       = GetAccountFromKey(0, "f5a6b7c890123456789012345678901234567890abcdef1234567890abcdef12")
 	InternalTxMainDeployer        = GetAccountFromKey(0, "e4f5a6b7c890123456789012345678901234567890abcdef1234567890abcdef")
+	TetherLogicDeployer           = GetAccountFromKey(0, "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcd01")
+	TetherProxyDeployer           = GetAccountFromKey(0, "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcd02")
 )
 
 // TestContractInfo represents a test contract configuration
@@ -159,6 +162,8 @@ var TestContractInfos = []TestContractInfo{
 	createUserStorageContractInfo(),
 	createInternalTxKIP17ContractInfo(),
 	createInternalTxMainContractInfo(),
+	createTetherLogicContractInfo(),
+	createTetherProxyContractInfo(),
 }
 
 func createERC20ContractInfo() TestContractInfo {
@@ -661,6 +666,97 @@ func createInternalTxMainContractInfo() TestContractInfo {
 		},
 		IsDeployed: isDeployerNonceNotZero,
 		GetAddress: getNonce0ContractAddress,
+	}
+}
+
+// createTetherLogicContractInfo creates the TetherToken logic contract (implementation)
+// This is deployed first, then the proxy contract points to this address.
+func createTetherLogicContractInfo() TestContractInfo {
+	return TestContractInfo{
+		testNames:                       []string{"erc20TransferWithBlockedListTC"},
+		auctionTargetTxTypeList:         []string{},
+		Bytecode:                        common.FromHex(tetherContracts.TetherContractTCBin),
+		deployer:                        TetherLogicDeployer,
+		contractName:                    "Tether Token Logic Contract",
+		GenData:                         nil,
+		GetBytecodeWithConstructorParam: returnBinAsIs,
+		IsDeployed:                      isDeployerNonceNotZero,
+		GetAddress:                      getNonce0ContractAddress,
+	}
+}
+
+// createTetherProxyContractInfo creates the TransparentUpgradeableProxy contract
+// Constructor params: (address _logic, address admin_, bytes memory _data)
+// _data is the encoded initialize("Tether USD", "USD₮", 6) call
+func createTetherProxyContractInfo() TestContractInfo {
+	return TestContractInfo{
+		testNames:               []string{"erc20TransferWithBlockedListTC"},
+		auctionTargetTxTypeList: []string{},
+		Bytecode:                common.FromHex(tetherContracts.TetherProxyBin),
+		deployer:                TetherProxyDeployer,
+		contractName:            "Tether Token Proxy Contract",
+		GenData: func(recipientAddr common.Address, value *big.Int) []byte {
+			// Use TetherToken ABI for function calls (transfer, balanceOf, etc.)
+			abii, err := abi.JSON(strings.NewReader(tetherContracts.TetherContractTCABI))
+			if err != nil {
+				log.Fatalf("failed to abi.JSON: %v", err)
+			}
+			data, err := abii.Pack("transfer", recipientAddr, value)
+			if err != nil {
+				log.Fatalf("failed to abi.Pack: %v", err)
+			}
+			return data
+		},
+		GetBytecodeWithConstructorParam: func(bin []byte, contracts []*Account, deployer *Account) []byte {
+			// Get the TetherLogic contract address
+			logicAddr := contracts[ContractTetherLogic].address
+			// Use TetherLogicDeployer as proxy admin (not the deployer)
+			// This allows TetherProxyDeployer (the tx sender) to be the TetherToken owner
+			// and still call logic contract functions through the proxy
+			adminAddr := TetherLogicDeployer.address
+
+			// Encode initialize("Tether USD", "USD₮", 6) for _data parameter
+			tetherAbi, err := abi.JSON(strings.NewReader(tetherContracts.TetherContractTCABI))
+			if err != nil {
+				log.Fatalf("failed to parse TetherToken ABI: %v", err)
+			}
+			initData, err := tetherAbi.Pack("initialize", "Tether USD", "USD₮", uint8(6))
+			if err != nil {
+				log.Fatalf("failed to pack initialize data: %v", err)
+			}
+
+			// Pack proxy constructor params: (address _logic, address admin_, bytes memory _data)
+			proxyAbi, err := abi.JSON(strings.NewReader(tetherContracts.TetherProxyABI))
+			if err != nil {
+				log.Fatalf("failed to parse TetherProxy ABI: %v", err)
+			}
+			constructorData, err := proxyAbi.Pack("", logicAddr, adminAddr, initData)
+			if err != nil {
+				log.Fatalf("failed to pack proxy constructor data: %v", err)
+			}
+
+			return append(bin, constructorData...)
+		},
+		IsDeployed: isDeployerNonceNotZero,
+		GetAddress: getNonce0ContractAddress,
+		DoChargingWork: func(ctx *AdditionalWorkContext) {
+			tetherAbi, err := abi.JSON(strings.NewReader(tetherContracts.TetherContractTCABI))
+			if err != nil {
+				log.Fatalf("failed to parse TetherToken ABI: %v", err)
+			}
+
+			// 1. Mint Tether tokens to test accounts
+			log.Printf("Start minting Tether tokens to test accounts")
+			proxyContract := ctx.AccGrp.GetTestContractByName(ContractTetherProxy)
+			ConcurrentTransactionSend(ctx.AccGrp.GetValidAccGrp(), ctx.MaxConcurrency, func(_ int, acc *Account) {
+				data, err := tetherAbi.Pack("mint", acc.address, big.NewInt(1e18))
+				if err != nil {
+					log.Fatalf("failed to pack mint data: %v", err)
+				}
+				TetherProxyDeployer.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, proxyContract, nil, data)
+			})
+			log.Printf("Finished minting Tether tokens")
+		},
 	}
 }
 

@@ -20,6 +20,7 @@ const (
 	AccListForNewAccounts
 	AccListForGaslessRevertTx
 	AccListForGaslessApproveTx
+	AccListForTC
 	AccListEnd
 )
 
@@ -46,6 +47,8 @@ const (
 	ContractUserStorage
 	ContractInternalTxKIP17
 	ContractInternalTxMain
+	ContractTetherLogic
+	ContractTetherProxy
 	ContractEnd
 )
 
@@ -84,8 +87,8 @@ func (a *AccGroup) SetAccListByName(accs []*Account, t AccList) {
 func (a *AccGroup) AddAccToListByName(acc *Account, t AccList) {
 	a.accLists[t] = append(a.accLists[t], acc)
 }
-func (a *AccGroup) CreateAccountsPerAccGrp(nUserForSignedTx int, nUserForUnsignedTx int, nUserForNewAccounts int, nUserForGaslessRevertTx int, nUserForGaslessApproveTx int, tcStrList []string, gEndpoint string) {
-	for idx, nUser := range []int{nUserForSignedTx, nUserForUnsignedTx, nUserForNewAccounts, nUserForGaslessRevertTx, nUserForGaslessApproveTx} {
+func (a *AccGroup) CreateAccountsPerAccGrp(nUserForSignedTx int, nUserForUnsignedTx int, nUserForNewAccounts int, nUserForGaslessRevertTx int, nUserForGaslessApproveTx int, nUserForTC int, tcStrList []string, gEndpoint string) {
+	for idx, nUser := range []int{nUserForSignedTx, nUserForUnsignedTx, nUserForNewAccounts, nUserForGaslessRevertTx, nUserForGaslessApproveTx, nUserForTC} {
 		println(idx, " Account Group Preparation...")
 		for i := 0; i < nUser; i++ {
 			account := NewAccount(i)

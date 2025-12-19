@@ -24,6 +24,7 @@ type Config struct {
 	nUserForUnsigned    int
 	nUserForSigned      int
 	nUserForNewAccounts int
+	nUserForTC          int
 	activeUserPercent   int
 
 	richWalletPrivateKey string
@@ -79,6 +80,7 @@ func (cfg *Config) setConfigsFromFlag(ctx *cli.Context) {
 	cfg.nUserForSigned = ctx.Int("vusigned")
 	cfg.nUserForUnsigned = ctx.Int("vuunsigned")
 	cfg.nUserForNewAccounts = 5
+	cfg.nUserForTC = ctx.Int("nUserForTC")
 	cfg.activeUserPercent = ctx.Int("activeUserPercent")
 	cfg.chargeKLAYAmount = ctx.Int("charge")
 	cfg.chargeParallelNum = ctx.Int("chargeParallel")
@@ -148,6 +150,7 @@ func (cfg *Config) setConfigsFromFlag(ctx *cli.Context) {
 	fmt.Printf("- Target EndPoint = %v\n", cfg.gEndpoint)
 	fmt.Printf("- nUserForSigned = %v\n", cfg.nUserForSigned)
 	fmt.Printf("- nUserForUnsigned = %v\n", cfg.nUserForUnsigned)
+	fmt.Printf("- nUserForTC = %v\n", cfg.nUserForTC)
 	fmt.Printf("- activeUserPercent = %v\n", cfg.activeUserPercent)
 	fmt.Printf("- coinbasePrivatekey = %v\n", cfg.richWalletPrivateKey)
 	fmt.Printf("- charging KLAY Amount = %v\n", cfg.chargeKLAYAmount)
@@ -223,6 +226,7 @@ func (cfg *Config) GetBaseFee() *big.Int                 { return cfg.baseFee }
 func (cfg *Config) GetNUserForUnsigned() int             { return cfg.nUserForUnsigned }
 func (cfg *Config) GetNUserForSigned() int               { return cfg.nUserForSigned }
 func (cfg *Config) GetNUserForNewAccounts() int          { return cfg.nUserForNewAccounts }
+func (cfg *Config) GetNUserForTC() int                   { return cfg.nUserForTC }
 func (cfg *Config) GetGEndpoint() string                 { return cfg.gEndpoint }
 func (cfg *Config) GetActiveUserPercent() int            { return cfg.activeUserPercent }
 func (cfg *Config) GetTcStrList() []string               { return cfg.tcNameList }
@@ -248,6 +252,7 @@ var Flags = []cli.Flag{
 	cli.IntFlag{Name: "charge", Value: 1000000000, Usage: "charging amount for each test account in KLAY"},
 	cli.IntFlag{Name: "chargeParallel", Value: 0, Usage: "number of parallel transactions for charging accounts (0 = auto-detect based on CPU cores)"},
 	cli.IntFlag{Name: "maxidleconns", Value: 100, Usage: "maximum number of idle connections in default http client"},
+	cli.IntFlag{Name: "nUserForTC", Value: 0, Usage: "number of additional users for TC-specific purposes (e.g., blocked users in Tether)"},
 	cli.StringFlag{Name: "key", Usage: "private key of rich account for kaia charging of test accounts"},
 	cli.StringFlag{Name: "tc", Value: "", Usage: "tasks which user want to run, multiple tasks are separated by comma."},
 	cli.StringFlag{Name: "weights", Value: "", Usage: "weights which user want to run, multiple weights are separated by comma."},
