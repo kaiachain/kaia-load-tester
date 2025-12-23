@@ -77,7 +77,8 @@ func RunLargeMemoTC(config *TCConfig) func() {
 func RunErc20TransferTC(config *TCConfig) func() {
 	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		erc20Value := big.NewInt(int64(rand.Int() % 3))
-		erc20Data := account.TestContractInfos[account.ContractErc20].GenData(to.GetAddress(), erc20Value)
+		receiver := config.AccGrp.GetAccountRandomly()
+		erc20Data := account.TestContractInfos[account.ContractErc20].GenData(receiver.GetAddress(), erc20Value)
 		return from.TransferNewSmartContractExecutionTx(cli, to, nil, erc20Data)
 	}
 	return RunBaseWithContract(config, txFunc)
@@ -86,7 +87,8 @@ func RunErc20TransferTC(config *TCConfig) func() {
 func RunErc20TransferWithBlockedListTC(config *TCConfig) func() {
 	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		tetherValue := big.NewInt(int64(rand.Int() % 3))
-		tetherData := account.TestContractInfos[account.ContractTetherProxy].GenData(to.GetAddress(), tetherValue)
+		receiver := config.AccGrp.GetAccountRandomly()
+		tetherData := account.TestContractInfos[account.ContractTetherProxy].GenData(receiver.GetAddress(), tetherValue)
 		return from.TransferNewSmartContractExecutionTx(cli, to, nil, tetherData)
 	}
 	return RunBaseWithContract(config, txFunc)
