@@ -2,21 +2,21 @@
 
 # Solidity and Go binding file paths and names
 solidity_files=(
-    "cpuHeavy/CPUHeavy.sol"
+    # "cpuHeavy/CPUHeavy.sol"
     #"internalTxTC/InternalTxKIP17Token.sol"
     #"internalTxTC/InternalTxMainContract.sol"
-    "largeMemo/largeMemo.sol"
-    "readApiCallContract/ReadApiCallContract.sol"
-    "UserStorage/UserStorage.sol"
+    # "largeMemo/largeMemo.sol"
+    # "readApiCallContract/ReadApiCallContract.sol"
+    # "UserStorage/UserStorage.sol"
 )
 
 package_names=(
-    "cpuHeavyTC"
+    # "cpuHeavyTC"
     #internalTxTC
     #internalTxTC
-    "largeMemoTC"
-    "readApiCallContractTC"
-    "UserStorageTC"
+    # "largeMemoTC"
+    # "readApiCallContractTC"
+    # "UserStorageTC"
 )
 
 for i in "${!solidity_files[@]}"; do

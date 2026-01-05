@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	kaia "github.com/kaiachain/kaia"
@@ -1539,14 +1540,34 @@ func ConcurrentTransactionSend(accs []*Account, maxConcurrency int, transactionS
 	if maxConcurrency <= 0 {
 		maxConcurrency = runtime.NumCPU() * 10 // default value
 	}
+
+	total := len(accs)
+	if total == 0 {
+		return
+	}
+
+	var completed int64
 	ch := make(chan int, maxConcurrency)
 	wg := sync.WaitGroup{}
+
+	// Progress reporting interval (every 10% or minimum 1)
+	reportInterval := total / 10
+	if reportInterval == 0 {
+		reportInterval = 1
+	}
+
 	for idx, acc := range accs {
 		ch <- 1
 		wg.Add(1)
 		go func() {
 			transactionSend(idx, acc)
 			<-ch
+
+			current := atomic.AddInt64(&completed, 1)
+			if current%int64(reportInterval) == 0 || current == int64(total) {
+				log.Printf("Progress: %d/%d (%.1f%%)", current, total, float64(current)/float64(total)*100)
+			}
+
 			wg.Done()
 		}()
 	}
