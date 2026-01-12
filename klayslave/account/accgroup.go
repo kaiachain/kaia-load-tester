@@ -219,13 +219,14 @@ func WaitForSetupCompletion(gCli Client, waitFn func(Client) bool, contractName 
 
 	for i := 0; i < maxRetries; i++ {
 		if waitFn(gCli) {
-			log.Printf("Setup for %s is complete, proceeding with charging work", contractName)
+			log.Printf("[Non-leader] The leader has completed setup for %s, proceeding with charging work", contractName)
 			return
 		}
-		log.Printf("Waiting for %s setup to complete... (attempt %d/%d)", contractName, i+1, maxRetries)
+		log.Printf("[Non-leader] waiting for leader to complete the setup of %s... (attempt %d/%d)", contractName, i+1, maxRetries)
 		time.Sleep(retryInterval)
 	}
-	log.Printf("WARNING: Setup for %s did not complete within timeout, proceeding anyway", contractName)
+	log.Printf("[Non-leader] WARNING: Setup for %s did not complete within timeout, proceeding anyway", contractName)
+	log.Print("[Non-leader] WARNING: Maybe forgot to add `--leader` flag?")
 }
 
 type AccountSet struct {
