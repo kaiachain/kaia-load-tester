@@ -39,7 +39,7 @@ func sendBoomerEvent(tcName string, logString string, elapsed int64, err error, 
 	}
 }
 
-func getRandomBlockNumber(cli *client.Client, ctx context.Context) *big.Int {
+func getRandomBlockNumber(cli *client.KaiaClient, ctx context.Context) *big.Int {
 	readApiCallMutex.Lock()
 	defer readApiCallMutex.Unlock()
 
@@ -62,7 +62,7 @@ func getRandomBlockNumber(cli *client.Client, ctx context.Context) *big.Int {
 func RunGasPrice(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		start := boomer.Now()
@@ -76,7 +76,7 @@ func RunGasPrice(config *TCConfig) func() {
 func RunBlockNumber(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		start := boomer.Now()
@@ -95,13 +95,13 @@ func RunBlockNumber(config *TCConfig) func() {
 func RunGetBlockByNumber(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		ansBN := getRandomBlockNumber(cli, ctx)
 		start := boomer.Now()
 
-		block, err := cli.BlockByNumber(ctx, ansBN) //read the random block
+		block, err := cli.BlockByNumber(ctx, ansBN) // read the random block
 		if err == nil && block.Header().Number.Cmp(ansBN) != 0 {
 			err = errors.New("wrong block: 0x" + block.Header().Number.Text(16) + ", answer: 0x" + ansBN.Text(16))
 		}
@@ -139,7 +139,7 @@ func RunGetAccount(config *TCConfig) func() {
 func RunGetBlockWithConsensusInfoByNumber(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 		rpcCli := config.RpcCliPool.Alloc().(*rpc.Client)
 		defer config.RpcCliPool.Free(rpcCli)
@@ -166,7 +166,7 @@ func RunGetBlockWithConsensusInfoByNumber(config *TCConfig) func() {
 func RunGetStorageAt(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		smartContractAccount := config.SmartContractAccounts[account.ContractReadApiCallContract]
@@ -185,7 +185,7 @@ func RunGetStorageAt(config *TCConfig) func() {
 // RunCall creates a closure for call test case
 func RunCall(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		fromAccount := config.AccGrp.GetAccountRandomly().GetAddress()
@@ -222,7 +222,7 @@ func RunCall(config *TCConfig) func() {
 func RunEstimateGas(config *TCConfig) func() {
 	return func() {
 		ctx := context.Background()
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		fromAccount := config.AccGrp.GetAccountRandomly().GetAddress()

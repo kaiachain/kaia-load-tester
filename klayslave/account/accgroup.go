@@ -84,9 +84,11 @@ func (a *AccGroup) SetAccListByName(accs []*Account, t AccList) {
 		a.accLists[t] = append(a.accLists[t], acc)
 	}
 }
+
 func (a *AccGroup) AddAccToListByName(acc *Account, t AccList) {
 	a.accLists[t] = append(a.accLists[t], acc)
 }
+
 func (a *AccGroup) CreateAccountsPerAccGrp(nUserForSignedTx int, nUserForUnsignedTx int, nUserForNewAccounts int, nUserForGaslessRevertTx int, nUserForGaslessApproveTx int, nUserForTC int, tcStrList []string, gEndpoint string) {
 	for idx, nUser := range []int{nUserForSignedTx, nUserForUnsignedTx, nUserForNewAccounts, nUserForGaslessRevertTx, nUserForGaslessApproveTx, nUserForTC} {
 		println(idx, " Account Group Preparation...")
@@ -127,7 +129,7 @@ func (a *AccGroup) GetValidAccGrp() []*Account {
 	for _, acc := range a.GetAccListByName(AccListForSignedTx) {
 		accGrp = append(accGrp, acc)
 	}
-	//if !a.cfg.InTheTcList("transferUnsignedTx") {
+	// if !a.cfg.InTheTcList("transferUnsignedTx") {
 	if !a.containsUnsignedAccGrp {
 		return accGrp
 	}
@@ -148,7 +150,7 @@ func ContainsAnyInList(list []string, targets []string) bool {
 	return false
 }
 
-func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
+func (a *AccGroup) DeployTestContracts(gCli *client.KaiaClient, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
 	ctx := &AdditionalWorkContext{
 		GCli:             gCli,
 		LocalReservoir:   localReservoir,
@@ -172,7 +174,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 			isAlreadyDeployed := info.IsDeployed(gCli, info.deployer)
 			if !isAlreadyDeployed {
 				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue)
-				a.contracts[idx] = info.deployer.SmartContractDeployWithGuaranteeRetry(gCli, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer), info.contractName, true)
+				info.deployer.TransferNewLegacyTxWithEth(gCli, nil, nil, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer))
 			} else {
 				a.contracts[idx] = NewKaiaAccountWithAddr(0, info.GetAddress(gCli, info.deployer))
 			}
@@ -196,7 +198,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 			if info.WaitForSetup != nil {
 				WaitForSetupCompletion(gCli, info.WaitForSetup, info.contractName)
 			} else {
-				WaitForSetupCompletion(gCli, func(gCli *client.Client) bool {
+				WaitForSetupCompletion(gCli, func(gCli Client) bool {
 					return info.IsDeployed(gCli, info.deployer)
 				}, info.contractName)
 			}
@@ -213,7 +215,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 }
 
 // WaitForSetupCompletion polls on-chain state until setup is complete
-func WaitForSetupCompletion(gCli *client.Client, waitFn func(*client.Client) bool, contractName string) {
+func WaitForSetupCompletion(gCli Client, waitFn func(Client) bool, contractName string) {
 	const maxRetries = 60
 	const retryInterval = 5 * time.Second
 

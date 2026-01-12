@@ -8,7 +8,7 @@ replace (
 )
 
 require (
-	github.com/kaiachain/kaia v1.0.4-0.20251226045838-4a97e842fe2b // indirect
+	github.com/kaiachain/kaia v1.0.4-0.20251226045838-4a97e842fe2b
 	github.com/myzhan/boomer v1.6.0
 	github.com/tidwall/gjson v1.12.1
 	github.com/urfave/cli v1.20.0

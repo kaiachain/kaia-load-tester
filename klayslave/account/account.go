@@ -59,6 +59,9 @@ type Client interface {
 	SendRawTransaction(ctx context.Context, tx *types.Transaction) (common.Hash, error)
 	CreateAccessList(ctx context.Context, callMsg kaia.CallMsg) (*types.AccessList, uint64, string, error)
 	TransactionReceiptRpcOutput(ctx context.Context, txHash common.Hash) (r map[string]interface{}, err error)
+	BlockNumber(ctx context.Context) (*big.Int, error)
+	bind.DeployBackend
+	bind.ContractBackend
 }
 
 // TxSendFunc is a function type that sends a transaction
@@ -82,7 +85,7 @@ func DefaultRetryConfig() RetryConfig {
 }
 
 // RunWithRetry executes a transaction with retry logic for both send and WaitMined failures
-func (a *Account) RunWithRetry(c *client.Client, config RetryConfig, sendTx TxSendFunc) *types.Transaction {
+func (a *Account) RunWithRetry(c Client, config RetryConfig, sendTx TxSendFunc) *types.Transaction {
 	for {
 		var lastTx *types.Transaction
 		var err error
@@ -286,7 +289,6 @@ func NewAccount(id int) *Account {
 }
 
 func NewAccountOnNode(id int, endpoint string) *Account {
-
 	tAcc := NewAccount(id)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -299,12 +301,12 @@ func NewAccountOnNode(id int, endpoint string) *Account {
 
 	addr, err := c.ImportRawKey(ctx, tAcc.key[0], "")
 	if err != nil {
-		//log.Printf("Account(%v) : Failed to import\n", tAcc.address, err)
+		// log.Printf("Account(%v) : Failed to import\n", tAcc.address, err)
 	} else {
 		if tAcc.address != addr {
 			log.Fatalf("origial:%v, imported: %v\n", tAcc.address, addr.String())
 		}
-		//log.Printf("origial:%v, imported:%v\n", tAcc.address, addr.String())
+		// log.Printf("origial:%v, imported:%v\n", tAcc.address, addr.String())
 	}
 
 	_, err = c.UnlockAccount(ctx, tAcc.GetAddress(), "", 0)
@@ -312,7 +314,7 @@ func NewAccountOnNode(id int, endpoint string) *Account {
 		log.Printf("Account(%v) : Failed to Unlock: %v\n", tAcc.GetAddress().String(), err)
 	}
 
-	//log.Printf("Wallet UnLock Result: %v", flag)
+	// log.Printf("Wallet UnLock Result: %v", flag)
 
 	return tAcc
 }
@@ -381,7 +383,7 @@ func NewKaiaMultisigAccount(id int) *Account {
 	}
 }
 
-func UnlockAccount(c *client.Client, addr common.Address, pwd string) {
+func UnlockAccount(c *client.KaiaClient, addr common.Address, pwd string) {
 	ctx := context.Background()
 	defer ctx.Done()
 
@@ -414,7 +416,7 @@ func (acc *Account) GetNonce(c Client) uint64 {
 	}
 	acc.nonce = nonce
 
-	//fmt.Printf("account= %v  nonce = %v\n", acc.GetAddress().String(), nonce)
+	// fmt.Printf("account= %v  nonce = %v\n", acc.GetAddress().String(), nonce)
 	return acc.nonce
 }
 
@@ -436,12 +438,12 @@ func (acc *Account) UpdateNonce() {
 	acc.nonce++
 }
 
-func (a *Account) GetReceipt(c *client.Client, txHash common.Hash) (*types.Receipt, error) {
+func (a *Account) GetReceipt(c Client, txHash common.Hash) (*types.Receipt, error) {
 	ctx := context.Background()
 	return c.TransactionReceipt(ctx, txHash)
 }
 
-func (a *Account) GetBalance(c *client.Client) (*big.Int, error) {
+func (a *Account) GetBalance(c Client) (*big.Int, error) {
 	ctx := context.Background()
 	balance, err := c.BalanceAt(ctx, a.GetAddress(), nil)
 	if err != nil {
@@ -450,12 +452,12 @@ func (a *Account) GetBalance(c *client.Client) (*big.Int, error) {
 	return balance, err
 }
 
-func (self *Account) TransferSignedTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferSignedTx(c Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, gasPrice, err := self.TransferSignedTxReturnTx(true, c, to, value)
 	return tx.Hash(), gasPrice, err
 }
 
-func (self *Account) TransferSignedTxWithGuaranteeRetry(c *client.Client, to *Account, value *big.Int) *types.Transaction {
+func (self *Account) TransferSignedTxWithGuaranteeRetry(c Client, to *Account, value *big.Int) *types.Transaction {
 	config := DefaultRetryConfig()
 	config.WaitMinedTimeout = 30 * time.Second
 	return self.RunWithRetry(c, config, func() (*types.Transaction, error) {
@@ -464,12 +466,12 @@ func (self *Account) TransferSignedTxWithGuaranteeRetry(c *client.Client, to *Ac
 	})
 }
 
-func (self *Account) TransferSignedTxWithoutLock(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferSignedTxWithoutLock(c Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, gasPrice, err := self.TransferSignedTxReturnTx(false, c, to, value)
 	return tx.Hash(), gasPrice, err
 }
 
-func (self *Account) TransferSignedTxReturnTx(withLock bool, c *client.Client, to *Account, value *big.Int) (*types.Transaction, *big.Int, error) {
+func (self *Account) TransferSignedTxReturnTx(withLock bool, c Client, to *Account, value *big.Int) (*types.Transaction, *big.Int, error) {
 	if withLock {
 		self.mutex.Lock()
 		defer self.mutex.Unlock()
@@ -486,8 +488,8 @@ func (self *Account) TransferSignedTxReturnTx(withLock bool, c *client.Client, t
 	return signTx, tx.GasPrice(), err
 }
 
-func (self *Account) TransferNewValueTransferWithCancelTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
-	ctx := context.Background() //context.WithTimeout(context.Background(), 100*time.Second)
+func (self *Account) TransferNewValueTransferWithCancelTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+	ctx := context.Background() // context.WithTimeout(context.Background(), 100*time.Second)
 
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
@@ -551,7 +553,7 @@ func (self *Account) TransferNewValueTransferWithCancelTx(c *client.Client, to *
 	return hash, gasPrice, nil
 }
 
-func (self *Account) TransferNewValueTransferTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewValueTransferTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeValueTransfer, TxValues{
 		types.TxValueKeyTo:       to.GetAddress(),
 		types.TxValueKeyAmount:   value,
@@ -563,7 +565,7 @@ func (self *Account) TransferNewValueTransferTx(c *client.Client, to *Account, v
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedValueTransferTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedValueTransferTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedValueTransfer, TxValues{
 		types.TxValueKeyTo:       to.GetAddress(),
 		types.TxValueKeyAmount:   value,
@@ -576,7 +578,7 @@ func (self *Account) TransferNewFeeDelegatedValueTransferTx(c *client.Client, to
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedValueTransferWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedValueTransferWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedValueTransferWithRatio, TxValues{
 		types.TxValueKeyTo:                 to.GetAddress(),
 		types.TxValueKeyAmount:             value,
@@ -591,7 +593,7 @@ func (self *Account) TransferNewFeeDelegatedValueTransferWithRatioTx(c *client.C
 }
 
 // createMemoTransferTx is a helper function that creates and sends a memo transfer transaction
-func (self *Account) createMemoTransferTx(c *client.Client, to *Account, value *big.Int, data []byte, gasLimit uint64) (common.Hash, *big.Int, error) {
+func (self *Account) createMemoTransferTx(c *client.KaiaClient, to *Account, value *big.Int, data []byte, gasLimit uint64) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeValueTransferMemo, TxValues{
 		types.TxValueKeyTo:       to.GetAddress(),
 		types.TxValueKeyAmount:   value,
@@ -604,7 +606,7 @@ func (self *Account) createMemoTransferTx(c *client.Client, to *Account, value *
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewValueTransferMemoTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewValueTransferMemoTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	data := []byte("hello")
 	return self.createMemoTransferTx(c, to, value, data, 150000)
 }
@@ -615,7 +617,7 @@ func randInt(min int, max int) int {
 
 // increase memo size from 5 bytes to between 50 bytes and 2,000 bytes
 
-func (self *Account) TransferNewValueTransferBigRandomStringMemoTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewValueTransferBigRandomStringMemoTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	minBytes := 50
 	maxBytes := 2000
 	data := []byte(randomString(randInt(minBytes, maxBytes)))
@@ -623,20 +625,20 @@ func (self *Account) TransferNewValueTransferBigRandomStringMemoTx(c *client.Cli
 }
 
 // create 200 strings of memo
-func (self *Account) TransferNewValueTransferSmallMemoTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewValueTransferSmallMemoTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	length := 200
 	data := []byte(randomString(length))
 	return self.createMemoTransferTx(c, to, value, data, 150000)
 }
 
 // create 2000 strings of memo
-func (self *Account) TransferNewValueTransferLargeMemoTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewValueTransferLargeMemoTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	length := 2000
 	data := []byte(randomString(length))
 	return self.createMemoTransferTx(c, to, value, data, 200000)
 }
 
-func (self *Account) TransferNewFeeDelegatedValueTransferMemoTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedValueTransferMemoTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedValueTransferMemo, TxValues{
 		types.TxValueKeyTo:       to.GetAddress(),
 		types.TxValueKeyAmount:   value,
@@ -650,7 +652,7 @@ func (self *Account) TransferNewFeeDelegatedValueTransferMemoTx(c *client.Client
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedValueTransferMemoWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedValueTransferMemoWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedValueTransferMemoWithRatio, TxValues{
 		types.TxValueKeyTo:                 to.GetAddress(),
 		types.TxValueKeyAmount:             value,
@@ -665,7 +667,7 @@ func (self *Account) TransferNewFeeDelegatedValueTransferMemoWithRatioTx(c *clie
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewAccountCreationTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewAccountCreationTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeAccountCreation, TxValues{
 		types.TxValueKeyTo:            to.GetAddress(),
 		types.TxValueKeyAmount:        value,
@@ -679,7 +681,7 @@ func (self *Account) TransferNewAccountCreationTx(c *client.Client, to *Account,
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewAccountUpdateTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewAccountUpdateTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeAccountUpdate, TxValues{
 		types.TxValueKeyGasLimit:   uint64(100000),
 		types.TxValueKeyAccountKey: accountkey.NewAccountKeyPublicWithValue(&self.privateKey[0].PublicKey),
@@ -690,7 +692,7 @@ func (self *Account) TransferNewAccountUpdateTx(c *client.Client, to *Account, v
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedAccountUpdateTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedAccountUpdateTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedAccountUpdate, TxValues{
 		types.TxValueKeyGasLimit:   uint64(100000),
 		types.TxValueKeyAccountKey: accountkey.NewAccountKeyPublicWithValue(&self.privateKey[0].PublicKey),
@@ -702,7 +704,7 @@ func (self *Account) TransferNewFeeDelegatedAccountUpdateTx(c *client.Client, to
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedAccountUpdateWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedAccountUpdateWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedAccountUpdateWithRatio, TxValues{
 		types.TxValueKeyGasLimit:           uint64(100000),
 		types.TxValueKeyAccountKey:         accountkey.NewAccountKeyPublicWithValue(&self.privateKey[0].PublicKey),
@@ -715,7 +717,7 @@ func (self *Account) TransferNewFeeDelegatedAccountUpdateWithRatioTx(c *client.C
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewSmartContractDeployTx(c *client.Client, to *Account, value *big.Int, data []byte, shouldFixNonceZero bool) (common.Address, *types.Transaction, *big.Int, error) {
+func (self *Account) TransferNewSmartContractDeployTx(c *client.KaiaClient, to *Account, value *big.Int, data []byte, shouldFixNonceZero bool) (common.Address, *types.Transaction, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -757,7 +759,7 @@ func (self *Account) TransferNewSmartContractDeployTx(c *client.Client, to *Acco
 	return contractAddr, tx, gasPrice, nil
 }
 
-func (self *Account) TransferNewFeeDelegatedSmartContractDeployTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedSmartContractDeployTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	code := "0x608060405234801561001057600080fd5b506101de806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416631a39d8ef81146100805780636353586b146100a757806370a08231146100ca578063fd6b7ef8146100f8575b3360009081526001602052604081208054349081019091558154019055005b34801561008c57600080fd5b5061009561010d565b60408051918252519081900360200190f35b6100c873ffffffffffffffffffffffffffffffffffffffff60043516610113565b005b3480156100d657600080fd5b5061009573ffffffffffffffffffffffffffffffffffffffff60043516610147565b34801561010457600080fd5b506100c8610159565b60005481565b73ffffffffffffffffffffffffffffffffffffffff1660009081526001602052604081208054349081019091558154019055565b60016020526000908152604090205481565b336000908152600160205260408120805490829055908111156101af57604051339082156108fc029083906000818181858888f193505050501561019c576101af565b3360009081526001602052604090208190555b505600a165627a7a72305820627ca46bb09478a015762806cc00c431230501118c7c26c30ac58c4e09e51c4f0029"
 
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedSmartContractDeploy, TxValues{
@@ -775,7 +777,7 @@ func (self *Account) TransferNewFeeDelegatedSmartContractDeployTx(c *client.Clie
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedSmartContractDeployWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedSmartContractDeployWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	code := "0x608060405234801561001057600080fd5b506101de806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416631a39d8ef81146100805780636353586b146100a757806370a08231146100ca578063fd6b7ef8146100f8575b3360009081526001602052604081208054349081019091558154019055005b34801561008c57600080fd5b5061009561010d565b60408051918252519081900360200190f35b6100c873ffffffffffffffffffffffffffffffffffffffff60043516610113565b005b3480156100d657600080fd5b5061009573ffffffffffffffffffffffffffffffffffffffff60043516610147565b34801561010457600080fd5b506100c8610159565b60005481565b73ffffffffffffffffffffffffffffffffffffffff1660009081526001602052604081208054349081019091558154019055565b60016020526000908152604090205481565b336000908152600160205260408120805490829055908111156101af57604051339082156108fc029083906000818181858888f193505050501561019c576101af565b3360009081526001602052604090208190555b505600a165627a7a72305820627ca46bb09478a015762806cc00c431230501118c7c26c30ac58c4e09e51c4f0029"
 
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedSmartContractDeployWithRatio, TxValues{
@@ -804,7 +806,7 @@ func randomString(n int) string {
 	return string(b)
 }
 
-func (self *Account) ExecuteStorageTrieStore(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) ExecuteStorageTrieStore(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	abiStr := `[{"constant":true,"inputs":[],"name":"rootCaCertificate","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"_serialNumber","type":"string"}],"name":"getIdentity","outputs":[{"name":"","type":"string"},{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_caKey","type":"string"}],"name":"deleteCaCertificate","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_caKey","type":"string"},{"name":"_caCert","type":"string"}],"name":"insertCaCertificate","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"owner","outputs":[{"name":"","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_serialNumber","type":"string"},{"name":"_publicKey","type":"string"},{"name":"_hash","type":"string"}],"name":"insertIdentity","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_serialNumber","type":"string"}],"name":"deleteIdentity","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_caKey","type":"string"}],"name":"getCaCertificate","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"}]`
@@ -830,7 +832,7 @@ func (self *Account) ExecuteStorageTrieStore(c *client.Client, to *Account, valu
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewSmartContractExecutionTx(c *client.Client, to *Account, value *big.Int, data []byte) (*types.Transaction, *big.Int, error) {
+func (self *Account) TransferNewSmartContractExecutionTx(c *client.KaiaClient, to *Account, value *big.Int, data []byte) (*types.Transaction, *big.Int, error) {
 	if value == nil {
 		value = big.NewInt(0)
 	}
@@ -843,7 +845,7 @@ func (self *Account) TransferNewSmartContractExecutionTx(c *client.Client, to *A
 	return tx, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedSmartContractExecutionTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedSmartContractExecutionTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	abiStr := `[{"constant":true,"inputs":[],"name":"totalAmount","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"receiver","type":"address"}],"name":"reward","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"safeWithdrawal","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":true,"stateMutability":"payable","type":"fallback"}]`
 
 	abii, err := abi.JSON(strings.NewReader(string(abiStr)))
@@ -869,7 +871,7 @@ func (self *Account) TransferNewFeeDelegatedSmartContractExecutionTx(c *client.C
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedSmartContractExecutionWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedSmartContractExecutionWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	abiStr := `[{"constant":true,"inputs":[],"name":"totalAmount","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"receiver","type":"address"}],"name":"reward","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"safeWithdrawal","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"payable":true,"stateMutability":"payable","type":"fallback"}]`
 
 	abii, err := abi.JSON(strings.NewReader(string(abiStr)))
@@ -896,7 +898,7 @@ func (self *Account) TransferNewFeeDelegatedSmartContractExecutionWithRatioTx(c 
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewCancelTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewCancelTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeCancel, TxValues{
 		types.TxValueKeyGasLimit: uint64(100000000),
 	}, nil)
@@ -906,7 +908,7 @@ func (self *Account) TransferNewCancelTx(c *client.Client, to *Account, value *b
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedCancelTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedCancelTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedCancel, TxValues{
 		types.TxValueKeyGasLimit: uint64(100000000),
 		types.TxValueKeyFeePayer: to.address,
@@ -917,7 +919,7 @@ func (self *Account) TransferNewFeeDelegatedCancelTx(c *client.Client, to *Accou
 	return common.Hash{}, gasPrice, err
 }
 
-func (self *Account) TransferNewFeeDelegatedCancelWithRatioTx(c *client.Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewFeeDelegatedCancelWithRatioTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
 	tx, err := self.sendTransaction(c, types.TxTypeFeeDelegatedCancelWithRatio, TxValues{
 		types.TxValueKeyGasLimit:           uint64(100000000),
 		types.TxValueKeyFeePayer:           to.address,
@@ -1028,7 +1030,7 @@ func (self *Account) TransferNewLegacyTxWithEth(c Client, to *Account, value *bi
 }
 
 // This function is responsible for sending both Gasless Approve Transactions and Gasless Swap Transactions.
-func (self *Account) TransferNewGaslessTx(c *client.Client, testToken, gsr *Account) (common.Hash, common.Hash, *big.Int, error) {
+func (self *Account) TransferNewGaslessTx(c *client.KaiaClient, testToken, gsr *Account) (common.Hash, common.Hash, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -1099,7 +1101,7 @@ func (self *Account) TransferNewGaslessTx(c *client.Client, testToken, gsr *Acco
 
 // This function is responsible for sending only Gasless Approve Transactions.
 // This function won't increase nonce.
-func (self *Account) TransferNewGaslessApproveTx(c *client.Client, testToken, gsr *Account) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewGaslessApproveTx(c *client.KaiaClient, testToken, gsr *Account) (common.Hash, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -1148,7 +1150,7 @@ type BidResult struct {
 	RpcOutput map[string]interface{}
 }
 
-func (self *Account) AuctionBid(c *client.Client, auctionEntryPoint, targetContract *Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
+func (self *Account) AuctionBid(c *client.KaiaClient, auctionEntryPoint, targetContract *Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -1293,7 +1295,7 @@ func (self *Account) AuctionBid(c *client.Client, auctionEntryPoint, targetContr
 
 // AuctionRevertedBid is responsible for sending reverted bid.
 // Using an invalid nonce in a bid will cause the bid tx to be reverted.
-func (self *Account) AuctionRevertedBid(c *client.Client, auctionEntryPoint, targetContract *Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
+func (self *Account) AuctionRevertedBid(c *client.KaiaClient, auctionEntryPoint, targetContract *Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -1387,7 +1389,7 @@ func (self *Account) AuctionRevertedBid(c *client.Client, auctionEntryPoint, tar
 	return targetTx.Hash(), bid.Hash(), suggestedGasPrice, nil
 }
 
-func (self *Account) TransferNewEthAccessListTxWithEth(c *client.EthClient, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewEthAccessListTxWithEth(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
 	return self.transferNewEthStyleTx(c, to, value, input, EthTxTypeAccessList)
 }
 
@@ -1395,7 +1397,7 @@ func (self *Account) TransferNewEthDynamicFeeTxWithEth(c Client, to *Account, va
 	return self.transferNewEthStyleTx(c, to, value, input, EthTxTypeDynamicFee)
 }
 
-func (self *Account) TransferUnsignedTx(c *client.Client, to *Account, value *big.Int) (common.Hash, error) {
+func (self *Account) TransferUnsignedTx(c *client.KaiaClient, to *Account, value *big.Int) (common.Hash, error) {
 	ctx := context.Background()
 
 	fromAddr := self.GetAddress()
@@ -1420,13 +1422,13 @@ func (self *Account) TransferUnsignedTx(c *client.Client, to *Account, value *bi
 		log.Printf("Account(%v) : Failed to sendTransaction: %v\n", self.address[:5], err)
 		return common.Hash{}, err
 	}
-	//log.Printf("Account(%v) : Success to sendTransaction: %v\n", self.address[:5], hash.String())
+	// log.Printf("Account(%v) : Success to sendTransaction: %v\n", self.address[:5], hash.String())
 	return hash, nil
 }
 
 // SmartContractDeployWithGuaranteeRetry deploys only one smart contract among the slaves.
 // It the contract is already deployed by other slave, it just calculates the address of the contract.
-func (self *Account) SmartContractDeployWithGuaranteeRetry(gCli *client.Client, byteCode []byte, contractName string, shouldFixNonceZero bool) *Account {
+func (self *Account) SmartContractDeployWithGuaranteeRetry(gCli *client.KaiaClient, byteCode []byte, contractName string, shouldFixNonceZero bool) *Account {
 	log.Println(contractName, "deployer", self.address.String())
 
 	nonce := self.GetNonce(gCli)
@@ -1454,14 +1456,14 @@ func (self *Account) SmartContractDeployWithGuaranteeRetry(gCli *client.Client, 
 	return NewKaiaAccountWithAddr(1, addr)
 }
 
-func (a *Account) SmartContractExecutionWithGuaranteeRetry(gCli *client.Client, to *Account, value *big.Int, data []byte) {
+func (a *Account) SmartContractExecutionWithGuaranteeRetry(gCli *client.KaiaClient, to *Account, value *big.Int, data []byte) {
 	a.RunWithRetry(gCli, DefaultRetryConfig(), func() (*types.Transaction, error) {
 		tx, _, err := a.TransferNewSmartContractExecutionTx(gCli, to, value, data)
 		return tx, err
 	})
 }
 
-func (a *Account) TryRunTxSendFunctionWithGuaranteeRetry(gCli *client.Client, allowedErrors []error, txSendFunc func(gCli *client.Client, sender *Account) (*types.Transaction, error)) {
+func (a *Account) TryRunTxSendFunctionWithGuaranteeRetry(gCli Client, allowedErrors []error, txSendFunc func(gCli Client, sender *Account) (*types.Transaction, error)) {
 	config := DefaultRetryConfig()
 	config.ShouldSkip = func(err error) bool {
 		for _, allowError := range allowedErrors {
@@ -1477,7 +1479,7 @@ func (a *Account) TryRunTxSendFunctionWithGuaranteeRetry(gCli *client.Client, al
 	})
 }
 
-func (a *Account) CheckBalance(expectedBalance *big.Int, cli *client.Client) error {
+func (a *Account) CheckBalance(expectedBalance *big.Int, cli *client.KaiaClient) error {
 	balance, _ := a.GetBalance(cli)
 	if balance.Cmp(expectedBalance) != 0 {
 		fmt.Println(a.address.String() + " expected : " + expectedBalance.Text(10) + " actual : " + balance.Text(10))

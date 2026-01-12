@@ -106,19 +106,19 @@ type TestContractInfo struct {
 	Abi                             string
 	GenData                         func(addr common.Address, value *big.Int) []byte
 	GetBytecodeWithConstructorParam func(bin []byte, contracts []*Account, deployer *Account) []byte
-	IsDeployed                      func(gCli *client.Client, deployer *Account) bool
-	GetAddress                      func(gCli *client.Client, deployer *Account) common.Address
+	IsDeployed                      func(gCli Client, deployer *Account) bool
+	GetAddress                      func(gCli Client, deployer *Account) common.Address
 	// DoSetupWork is executed by leader only (e.g., GSR registration, Auction registration)
 	DoSetupWork func(ctx *AdditionalWorkContext)
 	// DoChargingWork is executed by all slaves after setup is complete (e.g., token charging, NFT minting)
 	DoChargingWork func(ctx *AdditionalWorkContext)
 	// WaitForSetup returns true when setup is complete (used by followers to wait for leader)
-	WaitForSetup func(gCli *client.Client) bool
+	WaitForSetup func(gCli Client) bool
 }
 
 // AdditionalWorkContext contains all context needed for additional work after contract deployment
 type AdditionalWorkContext struct {
-	GCli             *client.Client
+	GCli             *client.KaiaClient
 	LocalReservoir   *Account
 	GlobalReservoir  *Account
 	ChargeValue      *big.Int
@@ -276,7 +276,7 @@ func createGaslessTokenContractInfo() TestContractInfo {
 		},
 		IsDeployed: IsGSRExistInRegistry,
 		GetAddress: getGaslessTokenAddress,
-		WaitForSetup: func(gCli *client.Client) bool {
+		WaitForSetup: func(gCli Client) bool {
 			return IsGSRExistInRegistry(gCli, nil)
 		},
 		DoChargingWork: func(ctx *AdditionalWorkContext) {
@@ -372,7 +372,7 @@ func createGaslessSwapRouterContractInfo() TestContractInfo {
 		},
 		IsDeployed: IsGSRExistInRegistry,
 		GetAddress: getGSRAddress,
-		WaitForSetup: func(gCli *client.Client) bool {
+		WaitForSetup: func(gCli Client) bool {
 			return IsGSRExistInRegistry(gCli, nil)
 		},
 		DoSetupWork: func(ctx *AdditionalWorkContext) {
@@ -517,7 +517,7 @@ func createAuctionEntryPointContractInfo() TestContractInfo {
 		},
 		IsDeployed: IsAuctionEntryPointExistInRegistry,
 		GetAddress: getAuctionEntryPointAddress,
-		WaitForSetup: func(gCli *client.Client) bool {
+		WaitForSetup: func(gCli Client) bool {
 			return IsAuctionEntryPointExistInRegistry(gCli, nil)
 		},
 		DoSetupWork: func(ctx *AdditionalWorkContext) {
@@ -760,11 +760,11 @@ func createTetherProxyContractInfo() TestContractInfo {
 	}
 }
 
-func IsGSRExistInRegistry(gCli *client.Client, _ *Account) bool {
+func IsGSRExistInRegistry(gCli Client, _ *Account) bool {
 	return getGSRAddressInRegistry(gCli, nil) != common.Address{}
 }
 
-func IsAuctionEntryPointExistInRegistry(gCli *client.Client, _ *Account) bool {
+func IsAuctionEntryPointExistInRegistry(gCli Client, _ *Account) bool {
 	return getAuctionEntryPointAddressInRegistry(gCli, nil) != common.Address{}
 }
 
@@ -780,7 +780,7 @@ func GetInitialLiquidity() *big.Int {
 // 5. Add liquidity (from GSRSetupManager, nonce4)
 // 6. Add token to GSR (from GaslessSwapRouterDeployer, nonce1)
 // Each nonce is fixed, and if that nonce is used, the setup is considered complete and is skipped.
-func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
+func SetupLiquidity(gCli Client, accGrp *AccGroup) {
 	log.Printf("SetupLiquidity started...")
 	/* ------------- contract initialization  ------------- */
 	var (
@@ -814,7 +814,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 	}
 
 	/* ------------- create pair ------------- */
-	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(0)
 		transactOpts.GasLimit = 3000000
@@ -823,7 +823,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 	})
 
 	/* ------------- deposit ------------- */
-	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(1)
 		transactOpts.Value = initialLiquidity
@@ -833,7 +833,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 	})
 
 	/* ------------- approve(TestToken) ------------- */
-	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		// The nonce for GaslessTokenDeployer is as is.
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(2)
@@ -843,7 +843,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 	})
 
 	/* ------------- approve(WKAIA) ------------- */
-	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(3)
 		transactOpts.GasLimit = 3000000
@@ -852,7 +852,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 	})
 
 	/* ------------- add liquidity ------------- */
-	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GSRSetupManager.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(4)
 		transactOpts.GasLimit = 3000000
@@ -864,7 +864,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 
 	/* ------------- add token to gsr ------------- */
 	// Because the AddToken can be called by only the owner, need to use the deployer account.
-	GaslessSwapRouterDeployer.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	GaslessSwapRouterDeployer.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{blockchain.ErrNonceTooLow}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.Nonce = big.NewInt(1)
 		transactOpts.GasLimit = 3000000
@@ -877,7 +877,7 @@ func SetupLiquidity(gCli *client.Client, accGrp *AccGroup) {
 // RegisterGSR registers a GsrAddress from a globalReservoirAccount.
 // The GsrAddress is always 0x8a9af77d180CE8377437f82504f739bFe4074839 because it is determined that it is created by the nonce0 of GaslessSwapRouterDeployer.
 // Therefore, an address that conflicts with another slave will not be registered.
-func RegisterGSR(gCli *client.Client, accGrp *AccGroup, globalReservoirAccount *Account) {
+func RegisterGSR(gCli Client, accGrp *AccGroup, globalReservoirAccount *Account) {
 	log.Printf("RegisterGSR started...")
 	registry, err := kip149contract.NewRegistry(system.RegistryAddr, gCli)
 	if err != nil {
@@ -890,7 +890,7 @@ func RegisterGSR(gCli *client.Client, accGrp *AccGroup, globalReservoirAccount *
 	}
 
 	targetBlockNum := new(big.Int).Add(blockNum, big.NewInt(10))
-	globalReservoirAccount.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	globalReservoirAccount.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.GasLimit = 3000000
 		return registry.Register(transactOpts, gaslessImpl.GaslessSwapRouterName, accGrp.contracts[ContractGaslessSwapRouter].address, targetBlockNum)
@@ -924,7 +924,7 @@ func RegisterGSR(gCli *client.Client, accGrp *AccGroup, globalReservoirAccount *
 // RegisterAuctionEntryPoint registers a AuctionEntryPointAddress from a globalReservoirAccount.
 // The AuctionEntryPointAddress is always 0x259c74F5aBbc66D6015EfD15C2A80E8e10a1b435 because it is determined that it is created by the nonce0 of AuctionEntryPointDeployer.
 // Therefore, an address that conflicts with another slave will not be registered.
-func RegisterAuctionEntryPoint(gCli *client.Client, accGrp *AccGroup, globalReservoirAccount *Account) {
+func RegisterAuctionEntryPoint(gCli Client, accGrp *AccGroup, globalReservoirAccount *Account) {
 	log.Printf("RegisterAuctionEntryPoint started...")
 	registry, err := kip149contract.NewRegistry(system.RegistryAddr, gCli)
 	if err != nil {
@@ -937,7 +937,7 @@ func RegisterAuctionEntryPoint(gCli *client.Client, accGrp *AccGroup, globalRese
 	}
 
 	targetBlockNum := new(big.Int).Add(blockNum, big.NewInt(10))
-	globalReservoirAccount.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{}, func(_ *client.Client, sender *Account) (*types.Transaction, error) {
+	globalReservoirAccount.TryRunTxSendFunctionWithGuaranteeRetry(gCli, []error{}, func(_ Client, sender *Account) (*types.Transaction, error) {
 		transactOpts := bind.NewKeyedTransactor(sender.privateKey[0])
 		transactOpts.GasLimit = 3000000
 		return registry.Register(transactOpts, system.AuctionEntryPointName, accGrp.contracts[ContractAuctionEntryPoint].address, targetBlockNum)
@@ -972,7 +972,7 @@ func returnBinAsIs(bin []byte, _ []*Account, _ *Account) []byte {
 	return bin
 }
 
-func getNonce0ContractAddress(_ *client.Client, deployer *Account) common.Address {
+func getNonce0ContractAddress(_ Client, deployer *Account) common.Address {
 	if deployer == nil {
 		return common.Address{}
 	}
@@ -980,11 +980,11 @@ func getNonce0ContractAddress(_ *client.Client, deployer *Account) common.Addres
 }
 
 // isDeployerNonceNotZero checks if deployer has already deployed (nonce > 0)
-func isDeployerNonceNotZero(gCli *client.Client, deployer *Account) bool {
+func isDeployerNonceNotZero(gCli Client, deployer *Account) bool {
 	return deployer.GetNonce(gCli) > 0
 }
 
-func getGSRAddressInRegistry(gCli *client.Client, _ *Account) common.Address {
+func getGSRAddressInRegistry(gCli Client, _ *Account) common.Address {
 	registry, err := kip149contract.NewRegistry(system.RegistryAddr, gCli)
 	if err != nil {
 		return common.Address{}
@@ -996,7 +996,7 @@ func getGSRAddressInRegistry(gCli *client.Client, _ *Account) common.Address {
 	return addr
 }
 
-func getAuctionEntryPointAddressInRegistry(gCli *client.Client, _ *Account) common.Address {
+func getAuctionEntryPointAddressInRegistry(gCli Client, _ *Account) common.Address {
 	registry, err := kip149contract.NewRegistry(system.RegistryAddr, gCli)
 	if err != nil {
 		return common.Address{}
@@ -1009,7 +1009,7 @@ func getAuctionEntryPointAddressInRegistry(gCli *client.Client, _ *Account) comm
 }
 
 // Gives priority to data obtained from the chain.
-func getGSRAddress(gCli *client.Client, _ *Account) common.Address {
+func getGSRAddress(gCli Client, _ *Account) common.Address {
 	addressExpectedFromDeployer := getNonce0ContractAddress(gCli, GaslessSwapRouterDeployer)
 	addr := getGSRAddressInRegistry(gCli, nil)
 	if addr != (common.Address{}) {
@@ -1019,7 +1019,7 @@ func getGSRAddress(gCli *client.Client, _ *Account) common.Address {
 }
 
 // Gives priority to data obtained from the chain.
-func getAuctionEntryPointAddress(gCli *client.Client, _ *Account) common.Address {
+func getAuctionEntryPointAddress(gCli Client, _ *Account) common.Address {
 	addressExpectedFromDeployer := getNonce0ContractAddress(gCli, AuctionEntryPointDeployer)
 	addr := getAuctionEntryPointAddressInRegistry(gCli, nil)
 	if addr != (common.Address{}) {
@@ -1028,7 +1028,7 @@ func getAuctionEntryPointAddress(gCli *client.Client, _ *Account) common.Address
 	return addressExpectedFromDeployer
 }
 
-func getEntrypointNonce(gCli *client.Client, searcher common.Address) *big.Int {
+func getEntrypointNonce(gCli Client, searcher common.Address) *big.Int {
 	auctionEntryPoint, err := auctionEntryPointContracts.NewAuctionEntryPoint(getAuctionEntryPointAddress(gCli, nil), gCli)
 	if err != nil {
 		return big.NewInt(0)
@@ -1041,7 +1041,7 @@ func getEntrypointNonce(gCli *client.Client, searcher common.Address) *big.Int {
 }
 
 // Gives priority to data obtained from the chain.
-func getGaslessTokenAddress(gCli *client.Client, deployer *Account) common.Address {
+func getGaslessTokenAddress(gCli Client, deployer *Account) common.Address {
 	// If a supported token cannot be obtained from the registry, it will be assumed that the test token deployer has deployed it.
 	addressExpectedFromDeployer := getNonce0ContractAddress(gCli, GaslessTokenDeployer)
 	addr := getGSRAddress(gCli, GaslessSwapRouterDeployer)
