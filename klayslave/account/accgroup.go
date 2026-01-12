@@ -172,7 +172,7 @@ func (a *AccGroup) DeployTestContracts(gCli Client, chargeValue *big.Int, maxCon
 			isAlreadyDeployed := info.IsDeployed(gCli, info.deployer)
 			if !isAlreadyDeployed {
 				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue, nil)
-				info.deployer.TransferNewLegacyTxWithEth(gCli, nil, nil, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer))
+				a.contracts[idx] = info.deployer.SmartContractDeployWithGuaranteeRetry(gCli, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer), info.contractName, true)
 			} else {
 				a.contracts[idx] = NewKaiaAccountWithAddr(0, info.GetAddress(gCli, info.deployer))
 			}

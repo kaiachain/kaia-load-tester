@@ -945,7 +945,7 @@ const (
 )
 
 // transferNewEthereumTxWithAccessList is a helper for Ethereum tx types that use CreateAccessList
-func (self *Account) transferNewEthereumTxWithAccessList(c Client, to *Account, value *big.Int, input []byte, txType EthTxType) (common.Hash, *big.Int, error) {
+func (self *Account) transferNewEthereumTxWithAccessList(c Client, to *Account, value *big.Int, input []byte, txType EthTxType) (*types.Transaction, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
@@ -982,24 +982,24 @@ func (self *Account) transferNewEthereumTxWithAccessList(c Client, to *Account, 
 	}
 
 	err = self.sendRawTx(c, tx, nonce)
-	return tx.Hash(), gasPrice, err
+	return tx, gasPrice, err
 }
 
-func (self *Account) TransferNewEthereumAccessListTx(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewEthereumAccessListTx(c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	return self.transferNewEthereumTxWithAccessList(c, to, value, input, EthTxTypeAccessList)
 }
 
-func (self *Account) TransferNewEthereumDynamicFeeTx(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewEthereumDynamicFeeTx(c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	return self.transferNewEthereumTxWithAccessList(c, to, value, input, EthTxTypeDynamicFee)
 }
 
 // transferNewEthStyleTx is a helper for simple Ethereum-style transactions (without CreateAccessList)
-func (self *Account) transferNewEthStyleTx(c Client, to *Account, value *big.Int, input []byte, txType EthTxType) (common.Hash, *big.Int, error) {
+func (self *Account) transferNewEthStyleTx(c Client, to *Account, value *big.Int, input []byte, txType EthTxType) (*types.Transaction, *big.Int, error) {
 	self.mutex.Lock()
 	defer self.mutex.Unlock()
 
 	nonce := self.GetNonce(c)
-	gas := uint64(100000)
+	gas := uint64(10000000)
 	var tx *types.Transaction
 
 	if to == nil {
@@ -1022,14 +1022,14 @@ func (self *Account) transferNewEthStyleTx(c Client, to *Account, value *big.Int
 	}
 
 	if err := tx.SignWithKeys(types.LatestSignerForChainID(chainID), self.privateKey); err != nil {
-		return tx.Hash(), gasPrice, err
+		return tx, gasPrice, err
 	}
 
 	err := self.sendRawTx(c, tx, nonce)
-	return tx.Hash(), gasPrice, err
+	return tx, gasPrice, err
 }
 
-func (self *Account) TransferNewLegacyTxWithEth(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewLegacyTxWithEth(c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	return self.transferNewEthStyleTx(c, to, value, input, EthTxTypeLegacy)
 }
 
@@ -1393,11 +1393,11 @@ func (self *Account) AuctionRevertedBid(c *client.KaiaClient, auctionEntryPoint,
 	return targetTx.Hash(), bid.Hash(), suggestedGasPrice, nil
 }
 
-func (self *Account) TransferNewEthAccessListTxWithEth(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewEthAccessListTxWithEth(c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	return self.transferNewEthStyleTx(c, to, value, input, EthTxTypeAccessList)
 }
 
-func (self *Account) TransferNewEthDynamicFeeTxWithEth(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+func (self *Account) TransferNewEthDynamicFeeTxWithEth(c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	return self.transferNewEthStyleTx(c, to, value, input, EthTxTypeDynamicFee)
 }
 
@@ -1428,6 +1428,36 @@ func (self *Account) TransferUnsignedTx(c *client.KaiaClient, to *Account, value
 	}
 	// log.Printf("Account(%v) : Success to sendTransaction: %v\n", self.address[:5], hash.String())
 	return hash, nil
+}
+
+// SmartContractDeployWithGuaranteeRetry deploys only one smart contract among the slaves.
+// It the contract is already deployed by other slave, it just calculates the address of the contract.
+func (self *Account) SmartContractDeployWithGuaranteeRetry(gCli Client, byteCode []byte, contractName string, shouldFixNonceZero bool) *Account {
+	log.Println(contractName, "deployer", self.address.String())
+
+	nonce := self.GetNonce(gCli)
+	if shouldFixNonceZero {
+		nonce = 0
+	}
+
+	config := RetryConfig{
+		SendRetryInterval: 5 * time.Second,
+		WaitMinedTimeout:  60 * time.Second,
+		ShouldSkip: func(err error) bool {
+			// Treat "known transaction" and ErrNonceTooLow (when shouldFixNonceZero) as success
+			return strings.HasPrefix(err.Error(), "known transaction") ||
+				(shouldFixNonceZero && err.Error() == blockchain.ErrNonceTooLow.Error())
+		},
+	}
+
+	self.RunWithRetry(gCli, config, func() (*types.Transaction, error) {
+		tx, _, err := self.TransferNewLegacyTxWithEth(gCli, nil, common.Big0, byteCode)
+		return tx, err
+	})
+
+	addr := crypto.CreateAddress(self.GetAddress(), nonce)
+	log.Printf("%s has been deployed to : %s\n", contractName, addr.String())
+	return NewKaiaAccountWithAddr(1, addr)
 }
 
 func (a *Account) TryRunTxSendFunctionWithGuaranteeRetry(gCli Client, allowedErrors []error, txSendFunc func(gCli Client, sender *Account) (*types.Transaction, error)) {

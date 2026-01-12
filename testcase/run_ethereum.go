@@ -169,7 +169,7 @@ func RunEthereumTxLegacyTC(config *TCConfig) func() {
 
 		start := boomer.Now()
 
-		txHash, _, err := from.TransferNewLegacyTxWithEth(cli, to, value, input)
+		tx, _, err := from.TransferNewLegacyTxWithEth(cli, to, value, input)
 
 		elapsed := boomer.Now() - start
 
@@ -187,7 +187,7 @@ func RunEthereumTxLegacyTC(config *TCConfig) func() {
 			}
 
 			boomer.Events.Publish("request_success", "http", "TransferNewLegacyTx"+" to "+config.EndPoint, elapsed, int64(10))
-		}(txHash)
+		}(tx.Hash())
 	}
 }
 
@@ -206,7 +206,7 @@ func RunEthereumTxAccessListTC(config *TCConfig) func() {
 
 		start := boomer.Now()
 
-		txHash, _, err := from.TransferNewEthAccessListTxWithEth(cli, to, value, input)
+		tx, _, err := from.TransferNewEthAccessListTxWithEth(cli, to, value, input)
 
 		elapsed := boomer.Now() - start
 
@@ -228,7 +228,7 @@ func RunEthereumTxAccessListTC(config *TCConfig) func() {
 			}
 
 			boomer.Events.Publish("request_success", "http", "TransferNewEthAccessListTx"+" to "+config.EndPoint, elapsed, int64(10))
-		}(txHash)
+		}(tx.Hash())
 	}
 }
 
@@ -247,7 +247,7 @@ func RunEthereumTxDynamicFeeTC(config *TCConfig) func() {
 
 		start := boomer.Now()
 
-		txHash, _, err := from.TransferNewEthDynamicFeeTxWithEth(cli, to, value, input)
+		tx, _, err := from.TransferNewEthDynamicFeeTxWithEth(cli, to, value, input)
 
 		elapsed := boomer.Now() - start
 
@@ -269,7 +269,7 @@ func RunEthereumTxDynamicFeeTC(config *TCConfig) func() {
 			}
 
 			boomer.Events.Publish("request_success", "http", "TransferNewEthDynamicFeeTx"+" to "+config.EndPoint, elapsed, int64(10))
-		}(txHash)
+		}(tx.Hash())
 	}
 }
 
@@ -287,7 +287,7 @@ func RunNewEthereumAccessListTC(config *TCConfig) func() {
 		}
 
 		start := boomer.Now()
-		txHash, _, err := from.TransferNewEthereumAccessListTx(cli, to, value, input)
+		tx, _, err := from.TransferNewEthereumAccessListTx(cli, to, value, input)
 		elapsed := boomer.Now() - start
 
 		if err != nil {
@@ -308,7 +308,7 @@ func RunNewEthereumAccessListTC(config *TCConfig) func() {
 			}
 
 			boomer.Events.Publish("request_success", "http", "transferNewEthereumAccessListTx"+" to "+config.EndPoint, elapsed, int64(10))
-		}(txHash)
+		}(tx.Hash())
 	}
 }
 
@@ -326,7 +326,7 @@ func RunNewEthereumDynamicFeeTC(config *TCConfig) func() {
 		}
 
 		start := boomer.Now()
-		txHash, _, err := from.TransferNewEthereumDynamicFeeTx(cli, to, value, input)
+		tx, _, err := from.TransferNewEthereumDynamicFeeTx(cli, to, value, input)
 		elapsed := boomer.Now() - start
 
 		if err != nil {
@@ -347,6 +347,6 @@ func RunNewEthereumDynamicFeeTC(config *TCConfig) func() {
 			}
 
 			boomer.Events.Publish("request_success", "http", "transferNewEthereumDynamicFeeTx"+" to "+config.EndPoint, elapsed, int64(10))
-		}(txHash)
+		}(tx.Hash())
 	}
 }
