@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -134,6 +135,7 @@ type TxOption struct {
 func (self *Account) sendRawTx(c Client, tx *types.Transaction, nonce uint64) error {
 	_, err := c.SendRawTransaction(context.Background(), tx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 		if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 			self.nonce++
@@ -181,6 +183,7 @@ func (self *Account) sendTransaction(c Client, txType types.TxType, values TxVal
 
 	_, err = c.SendRawTransaction(ctx, tx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 			fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 			self.nonce++
@@ -542,6 +545,7 @@ func (self *Account) TransferNewValueTransferWithCancelTx(c *client.KaiaClient, 
 	for _, tx := range txList {
 		hash, err := c.SendRawTransaction(ctx, tx)
 		if err != nil {
+			log.Printf("Stack: %s", debug.Stack())
 			if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 				fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 				fmt.Printf("Account(%v) nonce is added to %v\n", self.GetAddress().String(), nonce+1)
@@ -751,6 +755,7 @@ func (self *Account) TransferNewSmartContractDeployTx(c *client.KaiaClient, to *
 
 	_, err = c.SendRawTransaction(context.Background(), tx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 		if !shouldFixNonceZero && (err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error()) {
 			self.nonce++
@@ -1076,6 +1081,7 @@ func (self *Account) TransferNewGaslessTx(c *client.KaiaClient, testToken, gsr *
 
 	_, err = c.SendRawTransaction(ctx, signApproveTx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 			fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 			fmt.Printf("Account(%v) nonce is added to %v\n", self.GetAddress().String(), nonce+1)
@@ -1088,6 +1094,7 @@ func (self *Account) TransferNewGaslessTx(c *client.KaiaClient, testToken, gsr *
 
 	_, err = c.SendRawTransaction(ctx, signSwapTx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 			fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 			fmt.Printf("Account(%v) nonce is added to %v\n", self.GetAddress().String(), nonce+1)
@@ -1135,6 +1142,7 @@ func (self *Account) TransferNewGaslessApproveTx(c *client.KaiaClient, testToken
 
 	_, err = c.SendRawTransaction(ctx, signApproveTx)
 	if err != nil {
+		log.Printf("Stack: %s", debug.Stack())
 		if err.Error() == blockchain.ErrNonceTooLow.Error() || err.Error() == blockchain.ErrReplaceUnderpriced.Error() {
 			fmt.Printf("Account(%v) nonce(%v) : Failed to sendTransaction: %v\n", self.GetAddress().String(), nonce, err)
 			fmt.Printf("Account(%v) nonce is added to %v\n", self.GetAddress().String(), nonce+1)
