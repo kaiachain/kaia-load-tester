@@ -22,7 +22,6 @@ import (
 	"github.com/kaiachain/kaia/blockchain"
 	"github.com/kaiachain/kaia/blockchain/system"
 	"github.com/kaiachain/kaia/blockchain/types"
-	"github.com/kaiachain/kaia/client"
 	"github.com/kaiachain/kaia/common"
 	uniswapFactoryContracts "github.com/kaiachain/kaia/contracts/contracts/libs/uniswap/factory"
 	uniswapRouterContracts "github.com/kaiachain/kaia/contracts/contracts/libs/uniswap/router"
@@ -118,7 +117,7 @@ type TestContractInfo struct {
 
 // AdditionalWorkContext contains all context needed for additional work after contract deployment
 type AdditionalWorkContext struct {
-	GCli             *client.KaiaClient
+	GCli             Client
 	LocalReservoir   *Account
 	GlobalReservoir  *Account
 	ChargeValue      *big.Int
@@ -186,9 +185,9 @@ func createERC20ContractInfo() TestContractInfo {
 		DoChargingWork: func(ctx *AdditionalWorkContext) {
 			log.Printf("Start erc20 token charging to the test account group")
 			contract := ctx.AccGrp.GetTestContractByName(ContractErc20)
-			ERC20Deployer.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "mint", ctx.LocalReservoir.address, big.NewInt(1e11)))
+			ERC20Deployer.TransferSignedTx(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "mint", ctx.LocalReservoir.address, big.NewInt(1e11)))
 			ConcurrentTransactionSend(ctx.AccGrp.GetValidAccGrp(), ctx.MaxConcurrency, func(_ int, acc *Account) {
-				ctx.LocalReservoir.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", acc.address, big.NewInt(1e4)))
+				ctx.LocalReservoir.TransferSignedTx(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", acc.address, big.NewInt(1e4)))
 			})
 		},
 	}
@@ -215,7 +214,7 @@ func createERC721ContractInfo() TestContractInfo {
 				ERC721Ledger.InitializeAccount(acc.address)
 
 				startTokenId, endTokenId := baseOffset+int64(idx*5), baseOffset+int64((idx+1)*5)
-				ctx.LocalReservoir.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, contract, nil, PackContractCall(erc721PerformanceABI, "registerBulk", acc.address, big.NewInt(startTokenId), big.NewInt(endTokenId)))
+				ctx.LocalReservoir.TransferSignedTx(ctx.GCli, contract, nil, PackContractCall(erc721PerformanceABI, "registerBulk", acc.address, big.NewInt(startTokenId), big.NewInt(endTokenId)))
 
 				for tokenId := startTokenId; tokenId < endTokenId; tokenId++ {
 					ERC721Ledger.PutToken(acc.address, big.NewInt(tokenId))
@@ -288,13 +287,13 @@ func createGaslessTokenContractInfo() TestContractInfo {
 			lenValidAccGrp := big.NewInt(int64(len(ctx.AccGrp.GetValidAccGrp())))
 			lenGaslessApproveAccGrp := big.NewInt(int64(len(ctx.AccGrp.GetAccListByName(AccListForGaslessApproveTx))))
 			totalChargeValue := new(big.Int).Mul(ctx.ChargeValue, new(big.Int).Add(lenValidAccGrp, lenGaslessApproveAccGrp))
-			GaslessTokenDeployer.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", ctx.LocalReservoir.address, totalChargeValue))
+			GaslessTokenDeployer.TransferSignedTx(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", ctx.LocalReservoir.address, totalChargeValue))
 
 			// accounts(validAccGrp + gaslessApproveAccGrp) should be charged.
 			accounts := ctx.AccGrp.GetValidAccGrp()
 			accounts = append(accounts, ctx.AccGrp.GetAccListByName(AccListForGaslessApproveTx)...)
 			ConcurrentTransactionSend(accounts, ctx.MaxConcurrency, func(_ int, acc *Account) {
-				ctx.LocalReservoir.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", acc.address, ctx.ChargeValue))
+				ctx.LocalReservoir.TransferSignedTx(ctx.GCli, contract, nil, PackContractCall(erc20ABI, "transfer", acc.address, ctx.ChargeValue))
 			})
 		},
 	}
@@ -382,12 +381,13 @@ func createGaslessSwapRouterContractInfo() TestContractInfo {
 			log.Printf("GSR does not exist in registry, setting up liquidity and registering GSR...")
 
 			// Charge KAIA and gasless tokens to GSRSetupManager
-			ctx.LocalReservoir.TransferSignedTxWithGuaranteeRetry(
+			ctx.LocalReservoir.TransferSignedTx(
 				ctx.GCli,
 				GSRSetupManager,
 				new(big.Int).Add(ctx.ChargeValue, GetInitialLiquidity()),
+				nil,
 			)
-			GaslessTokenDeployer.SmartContractExecutionWithGuaranteeRetry(
+			GaslessTokenDeployer.TransferSignedTx(
 				ctx.GCli,
 				ctx.AccGrp.GetTestContractByName(ContractGaslessToken),
 				nil,
@@ -539,7 +539,7 @@ func createAuctionEntryPointContractInfo() TestContractInfo {
 				if err != nil {
 					log.Fatalf("failed to pack deposit data: %v", err)
 				}
-				ctx.LocalReservoir.SmartContractExecutionWithGuaranteeRetry(
+				ctx.LocalReservoir.TransferSignedTxWithGuaranteeRetry(
 					ctx.GCli,
 					ctx.AccGrp.GetTestContractByName(ContractAuctionDepositVault),
 					ctx.ChargeValue,
@@ -753,7 +753,7 @@ func createTetherProxyContractInfo() TestContractInfo {
 				if err != nil {
 					log.Fatalf("failed to pack mint data: %v", err)
 				}
-				TetherProxyDeployer.SmartContractExecutionWithGuaranteeRetry(ctx.GCli, proxyContract, nil, data)
+				TetherProxyDeployer.TransferSignedTxWithGuaranteeRetry(ctx.GCli, proxyContract, nil, data)
 			})
 			log.Printf("Finished minting Tether tokens")
 		},

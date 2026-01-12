@@ -452,33 +452,37 @@ func (a *Account) GetBalance(c Client) (*big.Int, error) {
 	return balance, err
 }
 
-func (self *Account) TransferSignedTx(c Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
-	tx, gasPrice, err := self.TransferSignedTxReturnTx(true, c, to, value)
+func (self *Account) TransferSignedTx(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+	tx, gasPrice, err := self.TransferSignedTxReturnTx(true, c, to, value, input)
 	return tx.Hash(), gasPrice, err
 }
 
-func (self *Account) TransferSignedTxWithGuaranteeRetry(c Client, to *Account, value *big.Int) *types.Transaction {
+func (self *Account) TransferSignedTxWithGuaranteeRetry(c Client, to *Account, value *big.Int, input []byte) *types.Transaction {
 	config := DefaultRetryConfig()
 	config.WaitMinedTimeout = 30 * time.Second
 	return self.RunWithRetry(c, config, func() (*types.Transaction, error) {
-		tx, _, err := self.TransferSignedTxReturnTx(true, c, to, value)
+		tx, _, err := self.TransferSignedTxReturnTx(true, c, to, value, input)
 		return tx, err
 	})
 }
 
-func (self *Account) TransferSignedTxWithoutLock(c Client, to *Account, value *big.Int) (common.Hash, *big.Int, error) {
-	tx, gasPrice, err := self.TransferSignedTxReturnTx(false, c, to, value)
+func (self *Account) TransferSignedTxWithoutLock(c Client, to *Account, value *big.Int, input []byte) (common.Hash, *big.Int, error) {
+	tx, gasPrice, err := self.TransferSignedTxReturnTx(false, c, to, value, input)
 	return tx.Hash(), gasPrice, err
 }
 
-func (self *Account) TransferSignedTxReturnTx(withLock bool, c Client, to *Account, value *big.Int) (*types.Transaction, *big.Int, error) {
+func (self *Account) TransferSignedTxReturnTx(withLock bool, c Client, to *Account, value *big.Int, input []byte) (*types.Transaction, *big.Int, error) {
 	if withLock {
 		self.mutex.Lock()
 		defer self.mutex.Unlock()
 	}
 
 	nonce := self.GetNonce(c)
-	tx := types.NewTransaction(nonce, to.GetAddress(), value, 21000, gasPrice, nil)
+	gas := uint64(21000)
+	if input != nil {
+		gas = 10000000
+	}
+	tx := types.NewTransaction(nonce, to.GetAddress(), value, gas, gasPrice, input)
 	signTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), self.privateKey[0])
 	if err != nil {
 		log.Fatalf("Failed to encode tx: %v", err)
@@ -1424,43 +1428,6 @@ func (self *Account) TransferUnsignedTx(c *client.KaiaClient, to *Account, value
 	}
 	// log.Printf("Account(%v) : Success to sendTransaction: %v\n", self.address[:5], hash.String())
 	return hash, nil
-}
-
-// SmartContractDeployWithGuaranteeRetry deploys only one smart contract among the slaves.
-// It the contract is already deployed by other slave, it just calculates the address of the contract.
-func (self *Account) SmartContractDeployWithGuaranteeRetry(gCli *client.KaiaClient, byteCode []byte, contractName string, shouldFixNonceZero bool) *Account {
-	log.Println(contractName, "deployer", self.address.String())
-
-	nonce := self.GetNonce(gCli)
-	if shouldFixNonceZero {
-		nonce = 0
-	}
-
-	config := RetryConfig{
-		SendRetryInterval: 5 * time.Second,
-		WaitMinedTimeout:  60 * time.Second,
-		ShouldSkip: func(err error) bool {
-			// Treat "known transaction" and ErrNonceTooLow (when shouldFixNonceZero) as success
-			return strings.HasPrefix(err.Error(), "known transaction") ||
-				(shouldFixNonceZero && err.Error() == blockchain.ErrNonceTooLow.Error())
-		},
-	}
-
-	self.RunWithRetry(gCli, config, func() (*types.Transaction, error) {
-		_, tx, _, err := self.TransferNewSmartContractDeployTx(gCli, nil, common.Big0, byteCode, shouldFixNonceZero)
-		return tx, err
-	})
-
-	addr := crypto.CreateAddress(self.GetAddress(), nonce)
-	log.Printf("%s has been deployed to : %s\n", contractName, addr.String())
-	return NewKaiaAccountWithAddr(1, addr)
-}
-
-func (a *Account) SmartContractExecutionWithGuaranteeRetry(gCli *client.KaiaClient, to *Account, value *big.Int, data []byte) {
-	a.RunWithRetry(gCli, DefaultRetryConfig(), func() (*types.Transaction, error) {
-		tx, _, err := a.TransferNewSmartContractExecutionTx(gCli, to, value, data)
-		return tx, err
-	})
 }
 
 func (a *Account) TryRunTxSendFunctionWithGuaranteeRetry(gCli Client, allowedErrors []error, txSendFunc func(gCli Client, sender *Account) (*types.Transaction, error)) {

@@ -165,7 +165,7 @@ func RunNewFeeDelegatedAccountUpdateWithRatioTC(config *TCConfig) func() {
 
 func RunTransferSignedTC(config *TCConfig) func() {
 	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account, value *big.Int) (interface{}, *big.Int, error) {
-		return from.TransferSignedTx(cli, to, value)
+		return from.TransferSignedTx(cli, to, value, nil)
 	}
 	return RunBaseValueTransfer(config, txFunc)
 }

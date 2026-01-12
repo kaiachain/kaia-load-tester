@@ -94,7 +94,7 @@ func runReceiptCheckSendTx(config *TCConfig) func() {
 		value := big.NewInt(int64(rand.Int() % 3))
 
 		start := boomer.Now()
-		hash, _, err := from.TransferSignedTx(cli, to, value)
+		hash, _, err := from.TransferSignedTx(cli, to, value, nil)
 		addHash(hash)
 		elapsed := boomer.Now() - start
 
@@ -169,7 +169,7 @@ func transferAndCheck(cli *client.KaiaClient, to *account.Account, from *account
 	fromFormerBalance, _ := from.GetBalance(cli)
 	toFormerBalance, _ := to.GetBalance(cli)
 
-	hash, gasPrice, err := from.TransferSignedTxWithoutLock(cli, to, value)
+	hash, gasPrice, err := from.TransferSignedTxWithoutLock(cli, to, value, nil)
 	if err != nil {
 		return err
 	}

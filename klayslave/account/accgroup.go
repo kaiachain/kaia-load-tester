@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/kaiachain/kaia/client"
 )
 
 // AccList defines the enum for accList
@@ -150,7 +148,7 @@ func ContainsAnyInList(list []string, targets []string) bool {
 	return false
 }
 
-func (a *AccGroup) DeployTestContracts(gCli *client.KaiaClient, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
+func (a *AccGroup) DeployTestContracts(gCli Client, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
 	ctx := &AdditionalWorkContext{
 		GCli:             gCli,
 		LocalReservoir:   localReservoir,
@@ -173,7 +171,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.KaiaClient, chargeValue *big
 		if isLeader {
 			isAlreadyDeployed := info.IsDeployed(gCli, info.deployer)
 			if !isAlreadyDeployed {
-				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue)
+				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue, nil)
 				info.deployer.TransferNewLegacyTxWithEth(gCli, nil, nil, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer))
 			} else {
 				a.contracts[idx] = NewKaiaAccountWithAddr(0, info.GetAddress(gCli, info.deployer))
