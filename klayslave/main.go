@@ -39,7 +39,7 @@ func init() {
 	//		app.CommandNotFound = nodecmd.CommandNotExist
 	// app.OnUsageError = nodecmd.OnUsageError
 	app.Before = func(cli *cli.Context) error {
-		//runtime.GOMAXPROCS(runtime.NumCPU())
+		// runtime.GOMAXPROCS(runtime.NumCPU())
 		if runtime.GOOS == "darwin" {
 			return nil
 		}
@@ -92,18 +92,18 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 	localReservoirAccount := account.NewAccount(0)
 
 	// 2. charge local reservoir
-	_ = globalReservoirAccount.GetNonce(cfg.GetGCli())
+	_ = globalReservoirAccount.GetNonce(cfg.GetEthCli())
 	revertGroupChargeValue := new(big.Int).Mul(cfg.GetChargeValue(), big.NewInt(int64(len(accGrp.GetAccListByName(account.AccListForGaslessRevertTx)))))
 	approveGroupChargeValue := new(big.Int).Mul(cfg.GetChargeValue(), big.NewInt(int64(len(accGrp.GetAccListByName(account.AccListForGaslessApproveTx)))))
 	forAuctionDepositChargeValue := new(big.Int).Mul(cfg.GetChargeValue(), big.NewInt(int64(len(accGrp.GetAccListByName(account.AccListForSignedTx)))))
 	initialLiquidity := common.Big0
-	if !account.IsGSRExistInRegistry(cfg.GetGCli(), nil) {
+	if !account.IsGSRExistInRegistry(cfg.GetEthCli(), nil) {
 		// If GSR does not exist, charge initial liquidity to the local reservoir
 		initialLiquidity = account.GetInitialLiquidity()
 	}
 	totalChargeValue := new(big.Int).Add(cfg.GetTotalChargeValue(), new(big.Int).Add(initialLiquidity, new(big.Int).Add(forAuctionDepositChargeValue, new(big.Int).Add(revertGroupChargeValue, approveGroupChargeValue))))
-	tx := globalReservoirAccount.TransferSignedTxWithGuaranteeRetry(cfg.GetGCli(), localReservoirAccount, totalChargeValue)
-	receipt, err := bind.WaitMined(context.Background(), cfg.GetGCli(), tx)
+	tx := globalReservoirAccount.TransferSignedTxWithGuaranteeRetry(cfg.GetEthCli(), localReservoirAccount, totalChargeValue, nil)
+	receipt, err := bind.WaitMined(context.Background(), cfg.GetEthCli(), tx)
 	if err != nil {
 		log.Fatalf("receipt failed, err:%v", err.Error())
 	}
@@ -117,7 +117,7 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 	accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessRevertTx)...)  // for avoid validation
 	accs = append(accs, accGrp.GetAccListByName(account.AccListForGaslessApproveTx)...) // for avoid validation
 	account.ConcurrentTransactionSend(accs, cfg.GetChargeParallelNum(), func(_ int, acc *account.Account) {
-		localReservoirAccount.TransferSignedTxWithGuaranteeRetry(cfg.GetGCli(), acc, cfg.GetChargeValue())
+		localReservoirAccount.TransferSignedTxWithGuaranteeRetry(cfg.GetEthCli(), acc, cfg.GetChargeValue(), nil)
 	})
 	log.Printf("Finished charging KLAY to %d test account(s)\n", len(accs))
 
@@ -129,7 +129,7 @@ func createTestAccGroupsAndPrepareContracts(cfg *config.Config, accGrp *account.
 	// GSR setup, Auction Entry Point registration, and Deposit are also done in DoAdditionalWork.
 	// All slaves call DeployTestContracts, but only leader does additional work (token charging, minting, etc.)
 	// Contracts are deployed only if deployer nonce is 0 (not yet deployed)
-	accGrp.DeployTestContracts(cfg.GetGCli(), cfg.GetChargeValue(), cfg.GetChargeParallelNum(), cfg.GetTcStrList(), cfg.GetAuctionTargetTxTypeList(), localReservoirAccount, globalReservoirAccount, cfg.IsLeaderSlave())
+	accGrp.DeployTestContracts(cfg.GetEthCli(), cfg.GetChargeValue(), cfg.GetChargeParallelNum(), cfg.GetTcStrList(), cfg.GetAuctionTargetTxTypeList(), localReservoirAccount, globalReservoirAccount, cfg.IsLeaderSlave())
 
 	return localReservoirAccount
 }

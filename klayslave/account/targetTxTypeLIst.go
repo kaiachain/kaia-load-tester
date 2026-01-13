@@ -15,16 +15,16 @@ import (
 
 type TargetTxType struct {
 	Description string
-	GenerateTx  func(c *client.Client, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction
-	PreSendBid  func(c *client.Client, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) error
-	PostSendBid func(c *client.Client, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int)
+	GenerateTx  func(c *client.KaiaClient, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction
+	PreSendBid  func(c *client.KaiaClient, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) error
+	PostSendBid func(c *client.KaiaClient, account, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int)
 }
 
 // TargetTxTypeList defines the list of auction target tx types.
 var TargetTxTypeList = map[string]*TargetTxType{
 	"VT": {
 		Description: "VT creates a ValueTransfer that sends a 1kei to itself.",
-		GenerateTx: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			signer := types.NewEIP155Signer(chainID)
 			tx, err := types.NewTransactionWithMap(types.TxTypeValueTransfer, map[types.TxValueKeyType]interface{}{
 				types.TxValueKeyNonce:    nonce,
@@ -44,17 +44,17 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return tx
 		},
-		PreSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			return nil
 		},
-		PostSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			account.nonce++
 			account.updateLastBlocknumSentTx(blockNumber.Uint64())
 		},
 	},
 	"SC": {
 		Description: "SC creates a SmartContractCall that calls the counter contract.",
-		GenerateTx: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			signer := types.NewEIP155Signer(chainID)
 			tx, err := types.NewTransactionWithMap(types.TxTypeSmartContractExecution, map[types.TxValueKeyType]interface{}{
 				types.TxValueKeyNonce:    nonce,
@@ -75,17 +75,17 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return tx
 		},
-		PreSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			return nil
 		},
-		PostSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			account.nonce++
 			account.updateLastBlocknumSentTx(blockNumber.Uint64())
 		},
 	},
 	"rSC": {
 		Description: "rSC creates a reverted SmartContractCall fails when incorrect data is entered.",
-		GenerateTx: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			signer := types.NewEIP155Signer(chainID)
 			tx, err := types.NewTransactionWithMap(types.TxTypeSmartContractExecution, map[types.TxValueKeyType]interface{}{
 				types.TxValueKeyNonce:    nonce,
@@ -106,17 +106,17 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return tx
 		},
-		PreSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			return nil
 		},
-		PostSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			account.nonce++
 			account.updateLastBlocknumSentTx(blockNumber.Uint64())
 		},
 	},
 	"GAA": {
 		Description: "GAA creates a Gasless Approve.",
-		GenerateTx: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			approveTx := types.NewTransaction(
 				nonce,
 				TestContractInfos[ContractGaslessToken].GetAddress(c, GaslessTokenDeployer),
@@ -130,10 +130,10 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return signApproveTx
 		},
-		PreSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			return nil
 		},
-		PostSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
 
@@ -164,7 +164,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 	},
 	"GAS": {
 		Description: "GAS creates a Gasless Swap.",
-		GenerateTx: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			swapTx := types.NewTransaction(
 				nonce+1,
 				TestContractInfos[ContractGaslessSwapRouter].GetAddress(c, GaslessSwapRouterDeployer),
@@ -178,7 +178,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return signSwapTx
 		},
-		PreSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
 
@@ -207,7 +207,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return nil
 		},
-		PostSendBid: func(c *client.Client, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, account, _ *Account, nonce uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			// Since gasless swap is the target, gasless bundle will be executed.
 			// Therefore, gasless swap is performed normally and the nonce is incremented by 2.
 			account.nonce += 2
@@ -216,7 +216,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 	},
 	"rGAA": {
 		Description: "rGAA creates a reverted Gasless which occurs due to lack of balance during swap.",
-		GenerateTx: func(c *client.Client, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			// tmpAccount should have nonce 0
 			approveTx := types.NewTransaction(
 				0,
@@ -231,10 +231,10 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return signApproveTx
 		},
-		PreSendBid: func(c *client.Client, _, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, _, tmpAccount *Account, nonce uint64, suggestedGasPrice *big.Int) error {
 			return nil
 		},
-		PostSendBid: func(c *client.Client, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 			// tmpAccount doesn't need nonce management.
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
@@ -253,7 +253,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 	},
 	"rGAS": {
 		Description: "rGAS creates a reverted Gasless which occurs due to lack of balance during swap.",
-		GenerateTx: func(c *client.Client, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) *types.Transaction {
+		GenerateTx: func(c *client.KaiaClient, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) *types.Transaction {
 			// tmpAccount should have nonce 1
 			swapTx := types.NewTransaction(
 				1,
@@ -268,7 +268,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return signSwapTx
 		},
-		PreSendBid: func(c *client.Client, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) error {
+		PreSendBid: func(c *client.KaiaClient, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int) error {
 			// tmpAccount doesn't need nonce management.
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 			defer cancel()
@@ -291,7 +291,7 @@ var TargetTxTypeList = map[string]*TargetTxType{
 			}
 			return nil
 		},
-		PostSendBid: func(c *client.Client, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
+		PostSendBid: func(c *client.KaiaClient, _, tmpAccount *Account, _ uint64, suggestedGasPrice *big.Int, blockNumber *big.Int) {
 		},
 	},
 }

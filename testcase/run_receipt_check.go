@@ -86,7 +86,7 @@ func doubleUnlock(to *account.Account, from *account.Account) {
 // runReceiptCheckSendTx creates a closure for receipt check send transaction
 func runReceiptCheckSendTx(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		from := config.AccGrp.GetAccountRandomly()
@@ -94,7 +94,7 @@ func runReceiptCheckSendTx(config *TCConfig) func() {
 		value := big.NewInt(int64(rand.Int() % 3))
 
 		start := boomer.Now()
-		hash, _, err := from.TransferSignedTx(cli, to, value)
+		hash, _, err := from.TransferSignedTx(cli, to, value, nil)
 		addHash(hash)
 		elapsed := boomer.Now() - start
 
@@ -109,7 +109,7 @@ func runReceiptCheckSendTx(config *TCConfig) func() {
 // runReceiptCheckReadTx creates a closure for receipt check read transaction
 func runReceiptCheckReadTx(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		ctx := context.Background()
@@ -160,7 +160,7 @@ func RunReceiptCheckTC(config *TCConfig) func() {
 }
 
 // transferAndCheck performs a transfer and checks the balance
-func transferAndCheck(cli *client.Client, to *account.Account, from *account.Account, value *big.Int) error {
+func transferAndCheck(cli *client.KaiaClient, to *account.Account, from *account.Account, value *big.Int) error {
 	ctx := context.Background()
 
 	doubleLock(to, from)
@@ -169,7 +169,7 @@ func transferAndCheck(cli *client.Client, to *account.Account, from *account.Acc
 	fromFormerBalance, _ := from.GetBalance(cli)
 	toFormerBalance, _ := to.GetBalance(cli)
 
-	hash, gasPrice, err := from.TransferSignedTxWithoutLock(cli, to, value)
+	hash, gasPrice, err := from.TransferSignedTxWithoutLock(cli, to, value, nil)
 	if err != nil {
 		return err
 	}
@@ -234,7 +234,7 @@ func transferAndCheck(cli *client.Client, to *account.Account, from *account.Acc
 // RunTransferSignedWithCheckTC creates a closure for transfer signed with check test case
 func RunTransferSignedWithCheckTC(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		from := config.AccGrp.GetAccountRandomly()

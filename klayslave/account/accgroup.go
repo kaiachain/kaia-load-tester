@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/kaiachain/kaia/client"
 )
 
 // AccList defines the enum for accList
@@ -84,9 +82,11 @@ func (a *AccGroup) SetAccListByName(accs []*Account, t AccList) {
 		a.accLists[t] = append(a.accLists[t], acc)
 	}
 }
+
 func (a *AccGroup) AddAccToListByName(acc *Account, t AccList) {
 	a.accLists[t] = append(a.accLists[t], acc)
 }
+
 func (a *AccGroup) CreateAccountsPerAccGrp(nUserForSignedTx int, nUserForUnsignedTx int, nUserForNewAccounts int, nUserForGaslessRevertTx int, nUserForGaslessApproveTx int, nUserForTC int, tcStrList []string, gEndpoint string) {
 	for idx, nUser := range []int{nUserForSignedTx, nUserForUnsignedTx, nUserForNewAccounts, nUserForGaslessRevertTx, nUserForGaslessApproveTx, nUserForTC} {
 		println(idx, " Account Group Preparation...")
@@ -127,7 +127,7 @@ func (a *AccGroup) GetValidAccGrp() []*Account {
 	for _, acc := range a.GetAccListByName(AccListForSignedTx) {
 		accGrp = append(accGrp, acc)
 	}
-	//if !a.cfg.InTheTcList("transferUnsignedTx") {
+	// if !a.cfg.InTheTcList("transferUnsignedTx") {
 	if !a.containsUnsignedAccGrp {
 		return accGrp
 	}
@@ -148,7 +148,7 @@ func ContainsAnyInList(list []string, targets []string) bool {
 	return false
 }
 
-func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
+func (a *AccGroup) DeployTestContracts(gCli Client, chargeValue *big.Int, maxConcurrency int, tcList []string, targetTxTypeList []string, localReservoir *Account, globalReservoir *Account, isLeader bool) {
 	ctx := &AdditionalWorkContext{
 		GCli:             gCli,
 		LocalReservoir:   localReservoir,
@@ -171,7 +171,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 		if isLeader {
 			isAlreadyDeployed := info.IsDeployed(gCli, info.deployer)
 			if !isAlreadyDeployed {
-				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue)
+				localReservoir.TransferSignedTxWithGuaranteeRetry(gCli, info.deployer, chargeValue, nil)
 				a.contracts[idx] = info.deployer.SmartContractDeployWithGuaranteeRetry(gCli, info.GetBytecodeWithConstructorParam(info.Bytecode, a.contracts, info.deployer), info.contractName, true)
 			} else {
 				a.contracts[idx] = NewKaiaAccountWithAddr(0, info.GetAddress(gCli, info.deployer))
@@ -196,7 +196,7 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 			if info.WaitForSetup != nil {
 				WaitForSetupCompletion(gCli, info.WaitForSetup, info.contractName)
 			} else {
-				WaitForSetupCompletion(gCli, func(gCli *client.Client) bool {
+				WaitForSetupCompletion(gCli, func(gCli Client) bool {
 					return info.IsDeployed(gCli, info.deployer)
 				}, info.contractName)
 			}
@@ -213,19 +213,20 @@ func (a *AccGroup) DeployTestContracts(gCli *client.Client, chargeValue *big.Int
 }
 
 // WaitForSetupCompletion polls on-chain state until setup is complete
-func WaitForSetupCompletion(gCli *client.Client, waitFn func(*client.Client) bool, contractName string) {
+func WaitForSetupCompletion(gCli Client, waitFn func(Client) bool, contractName string) {
 	const maxRetries = 60
 	const retryInterval = 5 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
 		if waitFn(gCli) {
-			log.Printf("Setup for %s is complete, proceeding with charging work", contractName)
+			log.Printf("[Non-leader] The leader has completed setup for %s, proceeding with charging work", contractName)
 			return
 		}
-		log.Printf("Waiting for %s setup to complete... (attempt %d/%d)", contractName, i+1, maxRetries)
+		log.Printf("[Non-leader] waiting for leader to complete the setup of %s... (attempt %d/%d)", contractName, i+1, maxRetries)
 		time.Sleep(retryInterval)
 	}
-	log.Printf("WARNING: Setup for %s did not complete within timeout, proceeding anyway", contractName)
+	log.Printf("[Non-leader] WARNING: Setup for %s did not complete within timeout, proceeding anyway", contractName)
+	log.Print("[Non-leader] WARNING: Maybe forgot to add `--leader` flag?")
 }
 
 type AccountSet struct {

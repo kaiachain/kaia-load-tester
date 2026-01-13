@@ -10,12 +10,12 @@ import (
 )
 
 // SmartContractTxFunc represents a smart contract transaction function signature
-type SmartContractTxFunc = func(*client.Client, *account.Account, *account.Account) (interface{}, *big.Int, error)
+type SmartContractTxFunc = func(*client.KaiaClient, *account.Account, *account.Account) (interface{}, *big.Int, error)
 
 // RunBaseWithContract creates a closure that executes a test case with contract account
 func RunBaseWithContract(config *TCConfig, txFunc SmartContractTxFunc) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		from := config.AccGrp.GetAccountRandomly()
@@ -34,7 +34,7 @@ func RunBaseWithContract(config *TCConfig, txFunc SmartContractTxFunc) func() {
 }
 
 func RunNewSmartContractExecutionTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		data := account.TestContractInfos[account.ContractGeneral].GenData(from.GetAddress(), nil)
 		return from.TransferNewSmartContractExecutionTx(cli, to, nil, data)
 	}
@@ -42,21 +42,21 @@ func RunNewSmartContractExecutionTC(config *TCConfig) func() {
 }
 
 func RunNewFeeDelegatedSmartContractExecutionTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		return from.TransferNewFeeDelegatedSmartContractExecutionTx(cli, to, big.NewInt(0))
 	}
 	return RunBaseWithContract(config, txFunc)
 }
 
 func RunNewFeeDelegatedSmartContractExecutionWithRatioTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		return from.TransferNewFeeDelegatedSmartContractExecutionWithRatioTx(cli, to, big.NewInt(0))
 	}
 	return RunBaseWithContract(config, txFunc)
 }
 
 func RunCpuHeavyTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		cpuHeavyValue := big.NewInt(100)
 		cpuHeavyData := account.TestContractInfos[account.ContractCPUHeavy].GenData(from.GetAddress(), cpuHeavyValue)
 		return from.TransferNewSmartContractExecutionTx(cli, to, big.NewInt(0), cpuHeavyData)
@@ -65,7 +65,7 @@ func RunCpuHeavyTC(config *TCConfig) func() {
 }
 
 func RunLargeMemoTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		// Generate random memo size between 50 and 2000
 		memoSize := big.NewInt(int64(50 + rand.Intn(1951)))
 		memoData := account.TestContractInfos[account.ContractLargeMemo].GenData(from.GetAddress(), memoSize)
@@ -75,7 +75,7 @@ func RunLargeMemoTC(config *TCConfig) func() {
 }
 
 func RunErc20TransferTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		erc20Value := big.NewInt(int64(rand.Int() % 3))
 		receiver := config.AccGrp.GetAccountRandomly()
 		erc20Data := account.TestContractInfos[account.ContractErc20].GenData(receiver.GetAddress(), erc20Value)
@@ -85,7 +85,7 @@ func RunErc20TransferTC(config *TCConfig) func() {
 }
 
 func RunErc20TransferWithBlockedListTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		tetherValue := big.NewInt(int64(rand.Int() % 3))
 		receiver := config.AccGrp.GetAccountRandomly()
 		tetherData := account.TestContractInfos[account.ContractTetherProxy].GenData(receiver.GetAddress(), tetherValue)
@@ -96,7 +96,7 @@ func RunErc20TransferWithBlockedListTC(config *TCConfig) func() {
 
 func RunErc721TransferTC(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		// Find an account with available tokens
@@ -147,7 +147,7 @@ func RunErc721TransferTC(config *TCConfig) func() {
 
 // RunGaslessTransactionTC creates a closure for gasless transaction test case
 func RunGaslessTransactionTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		testTokenAccount := config.SmartContractAccounts[account.ContractGaslessToken]
 		gsrAccount := config.SmartContractAccounts[account.ContractGaslessSwapRouter]
 		_, _, _, err := from.TransferNewGaslessTx(cli, testTokenAccount, gsrAccount)
@@ -158,7 +158,7 @@ func RunGaslessTransactionTC(config *TCConfig) func() {
 
 // RunGaslessRevertTransactionTC creates a closure for gasless revert transaction test case
 func RunGaslessRevertTransactionTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		testTokenAccount := config.SmartContractAccounts[account.ContractGaslessToken]
 		gsrAccount := config.SmartContractAccounts[account.ContractGaslessSwapRouter]
 		_, _, _, err := from.TransferNewGaslessTx(cli, testTokenAccount, gsrAccount)
@@ -169,7 +169,7 @@ func RunGaslessRevertTransactionTC(config *TCConfig) func() {
 
 // RunGaslessOnlyApproveTC creates a closure for gasless only approve test case
 func RunGaslessOnlyApproveTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		testTokenAccount := config.SmartContractAccounts[account.ContractGaslessToken]
 		gsrAccount := config.SmartContractAccounts[account.ContractGaslessSwapRouter]
 		_, _, err := from.TransferNewGaslessApproveTx(cli, testTokenAccount, gsrAccount)
@@ -180,7 +180,7 @@ func RunGaslessOnlyApproveTC(config *TCConfig) func() {
 
 // RunInternalTxTC creates a closure for internal transaction test case
 func RunInternalTxTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		// Get main contract account
 		mainContractAccount := config.SmartContractAccounts[account.ContractInternalTxMain]
 
@@ -194,7 +194,7 @@ func RunInternalTxTC(config *TCConfig) func() {
 
 // RunMintNFTTC creates a closure for mint NFT test case
 func RunMintNFTTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		// Get KIP17 contract account
 		kip17ContractAccount := config.SmartContractAccounts[account.ContractInternalTxKIP17]
 
@@ -208,7 +208,7 @@ func RunMintNFTTC(config *TCConfig) func() {
 
 // RunStorageTrieWriteTC creates a closure for storage trie write test case
 func RunStorageTrieWriteTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		// Get storage trie contract account
 		storageTrieContractAccount := config.SmartContractAccounts[account.ContractStorageTrie]
 
@@ -222,7 +222,7 @@ func RunStorageTrieWriteTC(config *TCConfig) func() {
 
 // RunUserStorageSetTC creates a closure for user storage set test case
 func RunUserStorageSetTC(config *TCConfig) func() {
-	txFunc := func(cli *client.Client, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
+	txFunc := func(cli *client.KaiaClient, from *account.Account, to *account.Account) (interface{}, *big.Int, error) {
 		value := big.NewInt(1)
 		data := account.TestContractInfos[account.ContractUserStorage].GenData(from.GetAddress(), value)
 
@@ -234,7 +234,7 @@ func RunUserStorageSetTC(config *TCConfig) func() {
 // RunUserStorageSetGetTC creates a closure for user storage set and get test case
 func RunUserStorageSetGetTC(config *TCConfig) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 		from := config.AccGrp.GetAccountRandomly()
 

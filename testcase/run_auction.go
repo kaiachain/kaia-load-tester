@@ -11,12 +11,12 @@ import (
 )
 
 // AuctionTxFunc represents an auction transaction function signature
-type AuctionTxFunc = func(*account.Account, *client.Client, *account.Account, *account.Account, string) (common.Hash, common.Hash, *big.Int, error)
+type AuctionTxFunc = func(*account.Account, *client.KaiaClient, *account.Account, *account.Account, string) (common.Hash, common.Hash, *big.Int, error)
 
 // RunBaseWithAuction creates a closure that executes an auction test case with common logic
 func RunBaseWithAuction(config *TCConfig, auctionTxFunc AuctionTxFunc) func() {
 	return func() {
-		cli := config.CliPool.Alloc().(*client.Client)
+		cli := config.CliPool.Alloc().(*client.KaiaClient)
 		defer config.CliPool.Free(cli)
 
 		// Use round robin to avoid the same account being used too often
@@ -41,14 +41,14 @@ func RunBaseWithAuction(config *TCConfig, auctionTxFunc AuctionTxFunc) func() {
 }
 
 func RunAuctionBidTC(config *TCConfig) func() {
-	auctionTxFunc := func(from *account.Account, cli *client.Client, auctionEntryPoint, targetContract *account.Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
+	auctionTxFunc := func(from *account.Account, cli *client.KaiaClient, auctionEntryPoint, targetContract *account.Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
 		return from.AuctionBid(cli, auctionEntryPoint, targetContract, targetTxTypeKey)
 	}
 	return RunBaseWithAuction(config, auctionTxFunc)
 }
 
 func RunAuctionRevertedBidTC(config *TCConfig) func() {
-	auctionTxFunc := func(from *account.Account, cli *client.Client, auctionEntryPoint, targetContract *account.Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
+	auctionTxFunc := func(from *account.Account, cli *client.KaiaClient, auctionEntryPoint, targetContract *account.Account, targetTxTypeKey string) (common.Hash, common.Hash, *big.Int, error) {
 		return from.AuctionRevertedBid(cli, auctionEntryPoint, targetContract, targetTxTypeKey)
 	}
 	return RunBaseWithAuction(config, auctionTxFunc)
