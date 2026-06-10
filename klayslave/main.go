@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/kaiachain/kaia-load-tester/klayslave/account"
 	"github.com/kaiachain/kaia-load-tester/klayslave/config"
@@ -77,7 +78,12 @@ func RunAction(ctx *cli.Context) {
 
 	// Initialize refactored test cases (after contracts are deployed)
 	boomerTasks := initializeTasks(cfg, accGrp, cfg.GetExtendedTasks())
-	boomer.Run(boomerTasks...)
+	if rpsSchedule := cfg.GetRPSSchedule(); len(rpsSchedule) > 0 {
+		rateLimiter := NewStepRateLimiter(rpsSchedule, time.Second)
+		runBoomerWithRateLimiter(cfg.GetMasterHost(), cfg.GetMasterPort(), rateLimiter, boomerTasks...)
+	} else {
+		boomer.Run(boomerTasks...)
+	}
 }
 
 // createTestAccGroupsAndPrepareContracts do every init steps before task.Init

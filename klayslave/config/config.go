@@ -19,6 +19,14 @@ import (
 	"github.com/urfave/cli"
 )
 
+// RPSStep is one step of a multi-step RPS schedule.
+// Duration == 0 means the step holds until the test is stopped,
+// which is only allowed for the last step.
+type RPSStep struct {
+	RPS      int64
+	Duration time.Duration
+}
+
 type Config struct {
 	// Directly from flags
 	nUserForUnsigned    int
@@ -38,6 +46,10 @@ type Config struct {
 
 	gEndpoint     string
 	isLeaderSlave bool
+
+	masterHost  string
+	masterPort  int
+	rpsSchedule []RPSStep
 
 	// Directly from connected node
 	gasPrice *big.Int
@@ -66,14 +78,62 @@ func NewConfig(ctx *cli.Context) *Config {
 
 func (cfg *Config) setBoomerFlags(ctx *cli.Context) {
 	maxRPC := ctx.Int("max-rps")
-	masterHost := ctx.String("master-host")
-	masterPort := ctx.Int("master-port")
+	cfg.masterHost = ctx.String("master-host")
+	cfg.masterPort = ctx.Int("master-port")
+
+	rpsSchedule, err := ParseRPSSchedule(ctx.String("rps-schedule"))
+	if err != nil {
+		log.Fatalf("Invalid --rps-schedule: %v", err)
+	}
+	cfg.rpsSchedule = rpsSchedule
 
 	os.Args = append([]string{os.Args[0]},
 		"--max-rps", fmt.Sprintf("%d", maxRPC),
-		"--master-host", masterHost,
-		"--master-port", fmt.Sprintf("%d", masterPort),
+		"--master-host", cfg.masterHost,
+		"--master-port", fmt.Sprintf("%d", cfg.masterPort),
 	)
+}
+
+// ParseRPSSchedule parses a schedule string like "1000:60,5000:120,10000:0".
+// Each step is "<rps>:<durationSeconds>"; the last step may omit the duration
+// (or use 0) to hold its RPS until the test is stopped. An empty string
+// returns a nil schedule, meaning the schedule is disabled.
+func ParseRPSSchedule(schedule string) ([]RPSStep, error) {
+	schedule = strings.TrimSpace(schedule)
+	if schedule == "" {
+		return nil, nil
+	}
+
+	items := strings.Split(schedule, ",")
+	steps := make([]RPSStep, 0, len(items))
+	for i, item := range items {
+		item = strings.TrimSpace(item)
+		parts := strings.Split(item, ":")
+		if len(parts) > 2 || parts[0] == "" {
+			return nil, fmt.Errorf("step %d (%q) must be in <rps>:<durationSeconds> format", i+1, item)
+		}
+
+		rps, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil || rps <= 0 {
+			return nil, fmt.Errorf("step %d (%q) has invalid rps; it must be a positive integer", i+1, item)
+		}
+
+		durationSec := int64(0)
+		if len(parts) == 2 && parts[1] != "" {
+			durationSec, err = strconv.ParseInt(parts[1], 10, 64)
+			if err != nil || durationSec < 0 {
+				return nil, fmt.Errorf("step %d (%q) has invalid duration; it must be a non-negative integer in seconds", i+1, item)
+			}
+		}
+
+		isLast := i == len(items)-1
+		if durationSec == 0 && !isLast {
+			return nil, fmt.Errorf("step %d (%q) must have a positive duration; only the last step may omit it", i+1, item)
+		}
+
+		steps = append(steps, RPSStep{RPS: rps, Duration: time.Duration(durationSec) * time.Second})
+	}
+	return steps, nil
 }
 
 func (cfg *Config) setConfigsFromFlag(ctx *cli.Context) {
@@ -144,6 +204,14 @@ func (cfg *Config) setConfigsFromFlag(ctx *cli.Context) {
 	}
 
 	maxRPC := ctx.Int("max-rps")
+	// With a multi-step schedule, the effective maximum RPS is the largest step.
+	if schedule, err := ParseRPSSchedule(ctx.String("rps-schedule")); err == nil {
+		for _, step := range schedule {
+			if step.RPS > int64(maxRPC) {
+				maxRPC = int(step.RPS)
+			}
+		}
+	}
 	if account.ContainsAnyInList(cfg.tcNameList, []string{"auctionBidTC", "auctionRevertedBidTC"}) && cfg.nUserForSigned < maxRPC {
 		log.Fatal("When auctionBidTC or auctionRevertedBidTC is set, nUserForSigned must be larger than max-rps")
 	}
@@ -241,6 +309,9 @@ func (cfg *Config) GetGCli() *client.KaiaClient          { return cfg.gCli }
 func (cfg *Config) GetEthCli() *client.EthClient         { return cfg.ethCli }
 func (cfg *Config) GetChargeParallelNum() int            { return cfg.chargeParallelNum }
 func (cfg *Config) IsLeaderSlave() bool                  { return cfg.isLeaderSlave }
+func (cfg *Config) GetMasterHost() string                { return cfg.masterHost }
+func (cfg *Config) GetMasterPort() int                   { return cfg.masterPort }
+func (cfg *Config) GetRPSSchedule() []RPSStep            { return cfg.rpsSchedule }
 func (cfg *Config) GetChargeValue() *big.Int {
 	return new(big.Int).Mul(big.NewInt(int64(cfg.chargeKLAYAmount)), big.NewInt(params.KAIA))
 }
@@ -271,6 +342,7 @@ var Flags = []cli.Flag{
 
 var BoomerFlags = []cli.Flag{
 	cli.IntFlag{Name: "max-rps", Usage: "Maximum number of RPC calls"},
+	cli.StringFlag{Name: "rps-schedule", Usage: "Multi-step RPS schedule, e.g. \"1000:60,5000:120,10000:0\" (<rps>:<durationSeconds>, last step with duration 0 holds until stop). Overrides --max-rps when set"},
 	cli.StringFlag{Name: "master-host", Usage: "Url for the locust master"},
 	cli.StringFlag{Name: "master-port", Usage: "Port for the locust master"},
 }
